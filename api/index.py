@@ -279,3 +279,4 @@ def create_vercel_app():
 
 # WSGI application callable required by Vercel's Python runtime
 app = create_vercel_app()
+
