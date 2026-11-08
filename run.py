@@ -13,6 +13,20 @@ Usage:
 
 import os
 import sys
+
+# Automatically load local .env if present (kept out of Git via .gitignore)
+env_file = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(env_file):
+    with open(env_file, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip("'\"")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+
 from wortklar.app import create_app
 
 if __name__ == "__main__":
