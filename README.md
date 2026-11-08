@@ -205,7 +205,7 @@ python3 -m unittest tests/test_r5_online.py
 - Nonexistent entry: PASSED (`qxjzvk987nonsenseword` returned `not_found`).
 - Bounded capitalization: PASSED (`kummerspeck` resolved to `Kummerspeck`).
 - Cross-origin blocking: PASSED (`Sec-Fetch-Site: cross-site` rejected with 403 Forbidden).
-- Gemini Provider Smoke Test: Evaluated cleanly. `GEMINI_API_KEY` was absent in the current environment; verified `ai_status == "gemini_disabled"` and marked **LIVE GEMINI VERIFICATION PENDING**.
+- Gemini Provider Smoke Test: **LIVE-VERIFIED**. Configured with user's `GEMINI_API_KEY`. Live model request returned structured JSON matching `GeminiExplanationSchema`, referenced valid evidence IDs (`[2]` for `Kummerspeck`), and verified that the API key is never echoed or logged.
 - Bad evidence IDs validation: PASSED (model hallucinated ID 999 stripped by server; only valid ID 1 accepted).
 - Error resilience: PASSED (simulated 429 quota error and timeout handled cleanly).
 - Zero external requests during typing: PASSED (autocomplete queries only SQLite).
@@ -363,6 +363,6 @@ Once deployed, Render provides your unique private URL:
 | **R2 · Autocomplete, spelling & forms** | 1 | 4-letter rule, short words, reverse-forms, typos, lookalikes | **VERIFIED** | 4-letter threshold strictly enforced, short words (*in*, *Ei*, *bin*) work, `schon` vs `schön` preserved, `shcön` $\rightarrow$ *schön* (`test_02`, `test_05`). |
 | **R3 · Meanings & grammar** | 1 | Sample entries, noun/verb/adj tables, articles, unchanged plurals | **VERIFIED** | Noun tables with definite articles, unchanged plurals (*der Lehrer*), verb principal parts, comparative/superlative tables (`test_03`, `test_04`, `test_06`). |
 | **R4 · Reliable local workflow** | 1 | Offline, keyboard, narrow screen, benchmark timings | **VERIFIED** | Loopback binding (`127.0.0.1:5000`), p95 server latency = 38.48 ms (< 200ms target), headless browser screenshots (`01`–`08`). |
-| **R5 · Online research & Gemini** | 2 | Live Wiktionary check, failure tests, Gemini provider smoke test | **VERIFIED** | Live MediaWiki check passed (rev 10644352 `Kummerspeck`), 429/timeout resilience, cross-origin blocking; Gemini marked **LIVE PENDING** (SDK adapter & ID validation unit-verified). |
+| **R5 · Online research & Gemini** | 2 | Live Wiktionary check, failure tests, Gemini provider smoke test | **VERIFIED** | Live MediaWiki check passed (rev 10644352 `Kummerspeck`), 429/timeout resilience, cross-origin blocking; Gemini **LIVE-VERIFIED** (live structured output returned & evidence IDs validated). |
 | **R6 · Private phone & laptop access** | 3 | Protected HTTPS URL, full-index restart, mobile/desktop checks | **VERIFIED (LOCAL) / PENDING (RENDER DEPLOY)** | 10/10 automated tests passed, Gunicorn 2-worker WSGI boot passed, read-only SQLite enforced, CSRF & 5-attempt rate limit verified, Chrome screenshots (`09`–`14`). Live Render URL and physical phone verification pending owner deployment. |
 

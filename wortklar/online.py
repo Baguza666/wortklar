@@ -453,8 +453,12 @@ def generate_gemini_explanation(
     if not evidence:
         return None, "insufficient_evidence"
 
-    # Recommended model hierarchy starting from gemini-3.1-flash-lite
-    model = model_name or os.environ.get("GEMINI_MODEL") or "gemini-3.1-flash-lite"
+    # Model hierarchy starting from gemini-3.1-flash-lite, falling back to eligible free models
+    requested_model = model_name or os.environ.get("GEMINI_MODEL") or "gemini-3.1-flash-lite"
+    candidate_models = [requested_model]
+    for fallback in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"):
+        if fallback not in candidate_models:
+            candidate_models.append(fallback)
 
     try:
         from google import genai
@@ -487,16 +491,31 @@ Provide a concise plain-English explanation or translation strictly grounded in 
             temperature=0.2
         )
 
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config
-        )
+        response = None
+        for candidate in candidate_models:
+            try:
+                response = client.models.generate_content(
+                    model=candidate,
+                    contents=prompt,
+                    config=config
+                )
+                if response:
+                    break
+            except Exception as candidate_ex:
+                c_err = str(candidate_ex).lower()
+                # If model is not found / 404 in this project, try next eligible model in hierarchy
+                if ("not found" in c_err or "404" in c_err or "not supported" in c_err) and candidate != candidate_models[-1]:
+                    continue
+                raise candidate_ex
 
-        if not response or not response.text:
+        raw_text = response.text if (response and response.text) else None
+        if not raw_text and response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+            raw_text = response.candidates[0].content.parts[0].text
+
+        if not raw_text:
             return None, "empty_model_response"
 
-        parsed_json = json.loads(response.text)
+        parsed_json = json.loads(raw_text)
         validated_schema = GeminiExplanationSchema.model_validate(parsed_json)
 
         # Server-side validation of referenced IDs
