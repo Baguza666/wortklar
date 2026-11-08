@@ -236,10 +236,6 @@
       }
     }
   }
-        console.warn('Suggest error:', err);
-      }
-    }
-  }
 
   /**
    * Render suggestions into dropdown without modifying search input.
