@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+env/
+venv/
+ENV/
+
+# Database and datasets
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.db.tmp*
+data/
+downloads/
+raw_data/
+*.jsonl
+*.jsonl.gz
+
+# Test artifacts & screenshots
+screenshots/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets & Environment
+.env
+.env.*
+*.secret
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+

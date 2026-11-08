@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Wortklar · German → English Dictionary</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-top-row">
+        <h1 class="app-title"><a href="/">Wortklar</a></h1>
+        {% if hosted_mode %}
+        <div class="user-session-bar" aria-label="Session status">
+          <span class="user-status-badge">Private</span>
+          <form action="/logout" method="POST" class="logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="logout-btn" title="End your private session">Log out</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      <p class="app-subtitle">German → English dictionary for the A1 learner</p>
+    </header>
+
+    <main>
+      <!-- Search Form -->
+      <section class="search-section" aria-label="Dictionary search">
+        <form id="search-form" class="search-form" role="search" onsubmit="return false;">
+          <label for="search-input" class="search-label">German word or inflected form</label>
+          <div class="search-input-wrapper">
+            <input
+              type="text"
+              id="search-input"
+              class="search-input"
+              name="q"
+              placeholder="e.g. Haus, Häuser, gehen, ging, gut, schön"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="suggestion-list"
+              aria-haspopup="listbox"
+            >
+            <button type="submit" id="search-btn" class="search-btn">Search</button>
+          </div>
+          <!-- Live Keyboard Suggestion Dropdown (appears strictly after >= 4 letters) -->
+          <ul id="suggestion-list" class="suggestion-list hidden" role="listbox" aria-label="Suggestions"></ul>
+        </form>
+      </section>
+
+      <!-- Status / Alerts -->
+      <div id="status-container" class="status-container" aria-live="polite"></div>
+
+      <!-- Main Results Area -->
+      <section id="results-container" class="results-container" aria-label="Lookup results">
+        <!-- First Use State (Default) -->
+        <div id="first-use-view" class="state-card first-use-card">
+          <h2>Willkommen bei Wortklar!</h2>
+          <p>
+            Wortklar is your companion for learning German. Look up any word or inflected form to see clear English meanings,
+            crucial A1 grammar (articles, plurals, auxiliary verbs), and authentic bilingual examples.
+          </p>
+          <div class="first-use-tips">
+            <h3>Quick Tips for Learners</h3>
+            <ul>
+              <li><strong>Type 4+ letters:</strong> Autocomplete suggestions appear as a keyboard list without replacing your input.</li>
+              <li><strong>Short words work directly:</strong> Press <kbd>Enter</kbd> or click <em>Search</em> to look up short words like <a href="#in" class="example-link">in</a>, <a href="#Ei" class="example-link">Ei</a>, or <a href="#bin" class="example-link">bin</a>.</li>
+              <li><strong>Inflected forms:</strong> Search forms directly (e.g. <a href="#Häuser" class="example-link">Häuser</a> → Haus, <a href="#ging" class="example-link">ging</a> → gehen, <a href="#besser" class="example-link">besser</a> → gut).</li>
+              <li><strong>Spelling assistance:</strong> Typos and missing umlauts (<a href="#hauser" class="example-link">hauser</a>, <a href="#shcön" class="example-link">shcön</a>, <a href="#schon" class="example-link">schon</a> vs <a href="#schön" class="example-link">schön</a>) are clearly explained.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Result Views inserted dynamically via safe DOM methods -->
+        <div id="dynamic-content"></div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p>
+          <strong>Wortklar</strong> uses real lexicographical data from
+          <a href="https://en.wiktionary.org" target="_blank" rel="noopener noreferrer">English Wiktionary</a> and
+          <a href="https://de.wiktionary.org" target="_blank" rel="noopener noreferrer">German Wiktionary</a>,
+          extracted via <a href="https://kaikki.org" target="_blank" rel="noopener noreferrer">Kaikki.org / Wiktextract</a>.
+        </p>
+        <p class="license-note">
+          Text is available under the
+          <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)</a>.
+          All source text rendered without modification.
+          {% if hosted_mode %}
+          Search and lookup operate securely on your private Render web service.
+          {% else %}
+          Search and lookup operate entirely offline on your local machine.
+          {% endif %}
+        </p>
+      </div>
+    </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wortklar · Private Access Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="app-container login-container">
+    <header class="app-header text-center">
+      <h1 class="app-title"><a href="/login">Wortklar</a></h1>
+      <p class="app-subtitle">German → English dictionary for the A1 learner</p>
+    </header>
+
+    <main class="login-main">
+      <div class="state-card login-card">
+        <div class="login-card-header">
+          <h2>Private Access</h2>
+          <p class="login-badge">Owner Gate</p>
+        </div>
+        <p class="login-intro">
+          This hosted Wortklar instance is protected. Enter your owner password to begin or resume your session.
+        </p>
+
+        {% if error_message %}
+        <div class="alert alert-error" role="alert" aria-live="assertive">
+          <strong>Access Denied:</strong> {{ error_message }}
+          {% if lockout_seconds %}
+          <p class="lockout-note">Too many failed attempts. Try again in {{ lockout_seconds }} seconds.</p>
+          {% elif remaining_attempts is not none %}
+          <p class="remaining-note">{{ remaining_attempts }} attempt(s) remaining before temporary lockout.</p>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <form action="/login" method="POST" class="login-form" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="next" value="{{ next_url }}">
+
+          <div class="form-group">
+            <label for="password" class="form-label">Owner Password</label>
+            <div class="password-input-wrapper">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="form-input"
+                placeholder="Enter owner password"
+                required
+                autofocus
+                autocomplete="current-password"
+                autocorrect="off"
+                autocapitalize="none"
+                spellcheck="false"
+              >
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="login-submit-btn" class="btn-primary btn-block">Log In</button>
+          </div>
+        </form>
+
+        <div class="login-footer-info">
+          <h3>Hosting Notes</h3>
+          <ul>
+            <li><strong>Phone & Laptop:</strong> Use this same private HTTPS link on both devices.</li>
+            <li><strong>Cold Start:</strong> Free Render services sleep after 15 minutes of inactivity and wake in ~50s.</li>
+            <li><strong>Session:</strong> Stored securely in an HttpOnly, SameSite session cookie.</li>
+          </ul>
+        </div>
+      </div>
+    </main>
+
+    <footer class="app-footer text-center">
+      <p class="license-note">
+        Wortklar · Wiktionary & Kaikki.org CC BY-SA 4.0 · Private Hosted Mode
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
+

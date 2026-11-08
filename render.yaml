@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: wortklar
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt && python build.py
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT "wortklar.app:create_app()"
+    healthCheckPath: /healthz
+    envVars:
+      - key: HOSTED_MODE
+        value: "true"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WORTKLAR_PASSWORD_HASH
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-3.1-flash-lite"
+      - key: PYTHON_VERSION
+        value: "3.9.6"
+
