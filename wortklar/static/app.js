@@ -23,6 +23,68 @@
   let suggestAbortController = null;
   let latestSuggestRequestId = 0;
 
+  // Client-side in-memory caches for instant 0ms responses
+  const suggestCache = new Map();
+  const lookupCache = new Map();
+  const MAX_CLIENT_CACHE = 250;
+
+  /**
+   * German Text-to-Speech synthesis using native Web Speech API.
+   * Completely offline, instantaneous, zero dependencies.
+   */
+  function speakGerman(text) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const clean = text.replace(/^[–—\s]+|[–—\s]+$/g, '').trim();
+      if (!clean) return;
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = 'de-DE';
+      utterance.rate = 0.88; // Comfortable pace for German learners
+      window.speechSynthesis.speak(utterance);
+    } catch (_) {}
+  }
+
+  /**
+   * Audio pronunciation button generator.
+   */
+  function createAudioButton(text) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-audio-speak';
+    btn.setAttribute('aria-label', `Listen to German pronunciation: ${text}`);
+    btn.title = 'Listen to German pronunciation';
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      speakGerman(text);
+    });
+    return btn;
+  }
+
+  /**
+   * One-click copy button generator with visual confirmation.
+   */
+  function createCopyButton(text, label = 'word') {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-copy-action';
+    btn.setAttribute('aria-label', `Copy ${label}`);
+    btn.title = `Copy ${label}`;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 1500);
+      } catch (_) {}
+    });
+    return btn;
+  }
+
   /**
    * Normalize input string to Unicode NFC and trim.
    */
@@ -84,6 +146,16 @@
     const normVal = normalizeInput(rawVal);
     const letters = countLetters(normVal);
 
+    // Toggle clear search button
+    const clearBtn = document.getElementById('clear-search-btn');
+    if (clearBtn) {
+      if (rawVal.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+    }
+
     // Rule R2: Show list strictly after fourth typed letter.
     // No suggestion request or list for shorter input.
     if (letters < 4) {
@@ -94,15 +166,37 @@
       return;
     }
 
+    // Instant local cache check (0ms response)
+    if (suggestCache.has(normVal)) {
+      const cachedData = suggestCache.get(normVal);
+      if (cachedData.threshold_met && Array.isArray(cachedData.suggestions) && cachedData.suggestions.length > 0) {
+        renderSuggestions(cachedData.suggestions);
+      } else {
+        closeSuggestionList();
+      }
+      return;
+    }
+
     suggestDebounceTimer = setTimeout(() => {
       fetchSuggestions(normVal);
-    }, 120); // 120ms debounce
+    }, 110); // 110ms smooth debounce
   }
 
   /**
-   * Fetch suggestions with stale response cancellation.
+   * Fetch suggestions with stale response cancellation and local caching.
    */
   async function fetchSuggestions(query) {
+    // Instant client cache check
+    if (suggestCache.has(query)) {
+      const cached = suggestCache.get(query);
+      if (cached.threshold_met && Array.isArray(cached.suggestions) && cached.suggestions.length > 0) {
+        renderSuggestions(cached.suggestions);
+      } else {
+        closeSuggestionList();
+      }
+      return;
+    }
+
     if (suggestAbortController) {
       suggestAbortController.abort();
     }
@@ -124,6 +218,13 @@
         return;
       }
 
+      // Store in client LRU cache
+      if (suggestCache.size >= MAX_CLIENT_CACHE) {
+        const first = suggestCache.keys().next().value;
+        suggestCache.delete(first);
+      }
+      suggestCache.set(query, data);
+
       if (data.threshold_met && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
         renderSuggestions(data.suggestions);
       } else {
@@ -131,6 +232,10 @@
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
+        console.warn('Suggest error:', err);
+      }
+    }
+  }
         console.warn('Suggest error:', err);
       }
     }
@@ -286,7 +391,7 @@
   }
 
   /**
-   * Execute lookup for complete word of any length.
+   * Execute lookup for complete word of any length with local client caching.
    */
   async function executeLookup(query) {
     if (!query) return;
@@ -296,11 +401,19 @@
     // Update URL hash without reload for easy bookmarking/sharing
     window.location.hash = encodeURIComponent(query);
 
+    // Instant local cache check (0ms response)
+    if (lookupCache.has(query)) {
+      dynamicContent.innerHTML = '';
+      firstUseView.style.display = 'none';
+      renderLookupResults(lookupCache.get(query), query);
+      return;
+    }
+
     dynamicContent.innerHTML = '';
     firstUseView.style.display = 'none';
 
     // Loading indicator
-    const loadingCard = el('div', 'state-card', 'Searching Wortklar dictionary...');
+    const loadingCard = el('div', 'state-card loading-card', 'Searching Wortklar dictionary...');
     dynamicContent.appendChild(loadingCard);
 
     try {
@@ -322,6 +435,13 @@
         showAppErrorState(data.message || 'Lookup failed.', query);
         return;
       }
+
+      // Store in client LRU cache
+      if (lookupCache.size >= MAX_CLIENT_CACHE) {
+        const first = lookupCache.keys().next().value;
+        lookupCache.delete(first);
+      }
+      lookupCache.set(query, data);
 
       renderLookupResults(data, query);
     } catch (err) {
@@ -429,12 +549,19 @@
     const titleRow = el('div', 'entry-title-row');
 
     if (entry.article && entry.part_of_speech === 'noun') {
-      const artSpan = el('span', 'entry-article', `${entry.article} `);
+      const artClean = entry.article.toLowerCase().trim();
+      const artClass = artClean === 'der' ? 'art-der' : (artClean === 'die' ? 'art-die' : (artClean === 'das' ? 'art-das' : ''));
+      const artSpan = el('span', `entry-article ${artClass}`, `${entry.article} `);
       titleRow.appendChild(artSpan);
     }
 
     const headwordH2 = el('h2', 'entry-headword', entry.headword);
     titleRow.appendChild(headwordH2);
+
+    const actionPill = el('div', 'entry-action-pill');
+    actionPill.appendChild(createAudioButton(entry.headword));
+    actionPill.appendChild(createCopyButton(entry.headword, 'headword'));
+    titleRow.appendChild(actionPill);
 
     const posBadge = el('span', `entry-pos-badge ${entry.part_of_speech}`, entry.part_of_speech);
     titleRow.appendChild(posBadge);
@@ -576,7 +703,10 @@
 
       allExamples.slice(0, 3).forEach(ex => {
         const exItem = el('div', 'example-item');
-        exItem.appendChild(el('div', 'example-de', ex.de));
+        const deRow = el('div', 'example-de-row');
+        deRow.appendChild(el('span', 'example-de', ex.de));
+        deRow.appendChild(createAudioButton(ex.de));
+        exItem.appendChild(deRow);
         exItem.appendChild(el('div', 'example-en', ex.en));
         exSec.appendChild(exItem);
       });
@@ -1043,6 +1173,48 @@
     submitLookup();
   });
 
+  // Clear search input button
+  const clearBtn = document.getElementById('clear-search-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      clearBtn.classList.add('hidden');
+      closeSuggestionList();
+      searchInput.focus();
+    });
+  }
+
+  // Global keyboard shortcuts: '/' or 'Cmd+K' / 'Ctrl+K' focuses search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput) {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    }
+  });
+
+  // Dark mode theme initialization and toggle
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  function initTheme() {
+    const saved = localStorage.getItem('wortklar-theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = saved || (prefersDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('wortklar-theme', next);
+    });
+  }
+  initTheme();
+
   // Close suggestion list on click outside
   document.addEventListener('click', (e) => {
     if (!searchForm.contains(e.target)) {
@@ -1061,9 +1233,8 @@
     });
   });
 
-  // Initial load hash check
-  window.addEventListener('load', () => {
-    checkInitialStatus();
+  // Initial load and hash lookup
+  function handleHashLookup() {
     if (window.location.hash) {
       const term = decodeURIComponent(window.location.hash.substring(1));
       if (term) {
@@ -1071,6 +1242,15 @@
         executeLookup(term);
       }
     }
+  }
+
+  // Run immediately as DOM is already parsed
+  checkInitialStatus();
+  handleHashLookup();
+
+  // Listen to hash changes (e.g. browser back/forward or link clicks)
+  window.addEventListener('hashchange', () => {
+    handleHashLookup();
   });
 
 })();

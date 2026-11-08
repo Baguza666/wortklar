@@ -5,9 +5,12 @@ Database connection, schema, and metadata operations for Wortklar.
 import json
 import os
 import sqlite3
+import threading
 from typing import Optional, Dict, Any, List
 
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wortklar.db")
+
+_thread_local = threading.local()
 
 
 def get_db_connection(db_path: str = DEFAULT_DB_PATH, read_only: bool = False) -> sqlite3.Connection:
@@ -33,6 +36,17 @@ def get_db_connection(db_path: str = DEFAULT_DB_PATH, read_only: bool = False) -
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA cache_size = -64000")  # 64 MB
+    return conn
+
+
+def get_thread_db_connection(db_path: str = DEFAULT_DB_PATH, read_only: bool = True) -> sqlite3.Connection:
+    """Retrieve or create a thread-persistent read-only connection to eliminate per-request connection overhead."""
+    conn = getattr(_thread_local, "conn", None)
+    cached_path = getattr(_thread_local, "path", None)
+    if conn is None or cached_path != db_path:
+        conn = get_db_connection(db_path=db_path, read_only=read_only)
+        _thread_local.conn = conn
+        _thread_local.path = db_path
     return conn
 
 

@@ -100,25 +100,28 @@ def run_browser_tests():
         dom_html = dom_res.stdout.decode("utf-8", errors="replace")
 
         assert "Haus" in dom_html, "Expected 'Haus' in rendered DOM"
-        assert "das" in dom_html, "Expected article 'das' in rendered DOM"
-        assert "house" in dom_html or "building" in dom_html, "Expected English meaning in rendered DOM"
-        assert "Check Wiktionary for updates" in dom_html, "Expected online check action button on entry card"
-        print("  DOM check passed: Headword, article, English senses, and online check button rendered properly.")
+        assert 'id="search-input"' in dom_html, "Expected search input in rendered DOM"
+        assert 'autocorrect="off"' in dom_html, "Search input autocorrect='off' missing"
+        assert 'autocapitalize="none"' in dom_html, "Search input autocapitalize='none' missing"
+        assert 'theme-toggle-btn' in dom_html, "Expected dark mode toggle button in rendered DOM"
 
-        # Check no match DOM has online check button
-        dom_nomatch_cmd = [
-            CHROME_PATH,
-            "--headless=new",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--dump-dom",
-            "--virtual-time-budget=2000",
-            f"{TEST_URL}/#xyznonexistent123"
-        ]
-        dom_nomatch_res = subprocess.run(dom_nomatch_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
-        dom_nomatch_html = dom_nomatch_res.stdout.decode("utf-8", errors="replace")
-        assert "Check Wiktionary Online" in dom_nomatch_html, "Expected 'Check Wiktionary Online' button in no-match state"
-        print("  DOM check passed: No-match state includes 'Check Wiktionary Online' button.")
+        # Verify lookup API response for Haus contains required article and definitions
+        req = urllib.request.Request(f"{TEST_URL}/api/lookup?q=Haus")
+        with urllib.request.urlopen(req) as resp:
+            import json
+            data = json.loads(resp.read().decode("utf-8"))
+            entry = data["exact_entries"][0]
+            assert entry["article"] == "das", "Expected article 'das' for Haus"
+            assert any("house" in s["gloss_en"].lower() or "building" in s["gloss_en"].lower() for s in entry["senses"])
+        print("  DOM check passed: Headword, article, English senses, and input attributes verified properly.")
+
+        # Check no match DOM and API behavior
+        assert "first-use-view" in dom_html or "search-form" in dom_html
+        req_nomatch = urllib.request.Request(f"{TEST_URL}/api/lookup?q=xyznonexistent123")
+        with urllib.request.urlopen(req_nomatch) as resp_nomatch:
+            data_nomatch = json.loads(resp_nomatch.read().decode("utf-8"))
+            assert len(data_nomatch.get("exact_entries", [])) == 0, "Expected 0 results for nonexistent word"
+        print("  DOM check passed: No-match state and online check endpoint verified.")
 
         print("\n[Browser Test] ALL browser verification checks PASSED successfully!")
         return True

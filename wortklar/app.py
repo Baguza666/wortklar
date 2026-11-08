@@ -3,13 +3,20 @@ Flask application factory and routes for Wortklar.
 Supports offline local mode and single-owner password-protected hosted mode (Render).
 """
 
+from collections import OrderedDict
 import os
 import sqlite3
 import unicodedata
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from wortklar.db import get_db_connection, get_metadata, check_integrity, DEFAULT_DB_PATH
+from wortklar.db import (
+    get_db_connection,
+    get_thread_db_connection,
+    get_metadata,
+    check_integrity,
+    DEFAULT_DB_PATH
+)
 from wortklar.search import get_suggestions, lookup_word, count_letters, normalize_input
 from wortklar.auth import (
     check_hosted_mode_configured,
@@ -50,11 +57,28 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
     else:
         app.secret_key = os.environ.get("SECRET_KEY", "wortklar-local-mode-secret-key-32bytes")
 
+    # In-memory LRU caches for high-frequency queries
+    _suggest_cache = OrderedDict()
+    _lookup_cache = OrderedDict()
+    MAX_CACHE_SIZE = 2048
+
     def get_conn() -> sqlite3.Connection:
-        path = app.config["DB_PATH"]
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Database not initialized at: {path}")
-        return get_db_connection(path, read_only=True)
+        if "db_conn" not in g or g.get("db_path") != app.config["DB_PATH"]:
+            path = app.config["DB_PATH"]
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"Database not initialized at: {path}")
+            g.db_conn = get_db_connection(path, read_only=True)
+            g.db_path = path
+        return g.db_conn
+
+    @app.teardown_appcontext
+    def teardown_db(exception=None):
+        db_conn = g.pop("db_conn", None)
+        if db_conn is not None:
+            try:
+                db_conn.close()
+            except Exception:
+                pass
 
     @app.before_request
     def access_control():
@@ -108,7 +132,6 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
             conn = get_conn()
             cur = conn.execute("SELECT 1")
             cur.fetchone()
-            conn.close()
             return jsonify({"status": "ok"}), 200
         except Exception:
             return jsonify({"status": "unhealthy", "reason": "db_error"}), 503
@@ -211,7 +234,6 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
             try:
                 conn = get_conn()
                 metadata = get_metadata(conn)
-                conn.close()
             except Exception:
                 db_exists = False
 
@@ -246,8 +268,6 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
             integrity_ok = True
             if request.args.get("full_check") == "true":
                 integrity_ok = check_integrity(conn)
-
-            conn.close()
 
             return jsonify({
                 "status": "ready",
@@ -284,16 +304,29 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
                 "suggestions": []
             })
 
+        # Check memory cache for instant response
+        if q in _suggest_cache:
+            _suggest_cache.move_to_end(q)
+            resp = jsonify(_suggest_cache[q])
+            resp.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+            return resp
+
         try:
             conn = get_conn()
             suggestions = get_suggestions(conn, q, limit=8)
-            conn.close()
-            return jsonify({
+            payload = {
                 "query": q,
                 "letter_count": count_letters(q),
                 "threshold_met": True,
                 "suggestions": suggestions
-            })
+            }
+            if len(_suggest_cache) >= MAX_CACHE_SIZE:
+                _suggest_cache.popitem(last=False)
+            _suggest_cache[q] = payload
+
+            resp = jsonify(payload)
+            resp.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
+            return resp
         except FileNotFoundError:
             return jsonify({
                 "error": "database_missing",
@@ -316,11 +349,23 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
         if not q:
             return jsonify({"error": "empty_query", "message": "Please enter a word."}), 400
 
+        # Check memory cache for instant response
+        if q in _lookup_cache:
+            _lookup_cache.move_to_end(q)
+            resp = jsonify(_lookup_cache[q])
+            resp.headers["Cache-Control"] = "public, max-age=120, stale-while-revalidate=600"
+            return resp
+
         try:
             conn = get_conn()
             result = lookup_word(conn, q)
-            conn.close()
-            return jsonify(result)
+            if len(_lookup_cache) >= MAX_CACHE_SIZE:
+                _lookup_cache.popitem(last=False)
+            _lookup_cache[q] = result
+
+            resp = jsonify(result)
+            resp.headers["Cache-Control"] = "public, max-age=120, stale-while-revalidate=600"
+            return resp
         except FileNotFoundError:
             return jsonify({
                 "error": "database_missing",
