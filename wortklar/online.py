@@ -72,9 +72,16 @@ def clean_wiki_text(text: str) -> str:
     # Remove bold/italic quotes
     t = re.sub(r"'''+", "", t)
     t = re.sub(r"''+", "", t)
-    # Simplify common German Wiktionary templates
+    # Extract meaningful content from common templates before stripping
+    t = re.sub(r"\{\{Wortart\|([^}|]+)[^}]*\}\}", r"\1", t)
+    t = re.sub(r"\{\{Grundformverweis Dekl\|([^}|]+)[^}]*\}\}", r"Grundform: \1", t)
+    t = re.sub(r"\{\{plural of\|[^|]+\|([^}|]+)[^}]*\}\}", r"plural of \1", t)
+    t = re.sub(r"\{\{inflection of\|[^|]+\|([^}|]+)[^}]*\}\}", r"form of \1", t)
     t = re.sub(r"\{\{K\|([^}]+)\}\}", r"(\1)", t)  # {{K|ugs.}} -> (ugs.)
     t = re.sub(r"\{\{[^}]+\}\}", "", t)
+    # Strip leading/trailing formatting like === or * or : or #
+    t = re.sub(r"^=+\s*|\s*=+$", "", t)
+    t = re.sub(r"^[\*:#]+\s*", "", t)
     # Collapse multiple whitespaces
     t = re.sub(r"[ \t]+", " ", t)
     return t.strip()
@@ -409,7 +416,53 @@ def _extract_evidence_records(title: str, revid: int, wikitext: str, max_records
             line_str = line.strip()
             if line_str.startswith(":") or line_str.startswith("#"):
                 c = clean_wiki_text(line_str)
-                if c:
+                if c and len(c) > 2:
+                    evidence.append({
+                        "id": current_id,
+                        "title": title,
+                        "revid": revid,
+                        "text": c[:250]
+                    })
+                    current_id += 1
+                    if current_id > max_records:
+                        break
+
+    # Extract inflected form relationships / Grammatische Merkmale
+    gm_match = re.search(r"\{\{Grammatische Merkmale\}\}(.*?)(?=\n\{\{|\n===|\Z)", wikitext, re.DOTALL)
+    if gm_match and current_id <= max_records:
+        for line in gm_match.group(1).splitlines():
+            line_str = line.strip()
+            if line_str.startswith("*") or line_str.startswith(":") or line_str.startswith("#"):
+                c = clean_wiki_text(line_str)
+                if c and len(c) > 2:
+                    evidence.append({
+                        "id": current_id,
+                        "title": title,
+                        "revid": revid,
+                        "text": c[:250]
+                    })
+                    current_id += 1
+                    if current_id > max_records:
+                        break
+
+    # Extract Grundformverweis if present
+    gfv_match = re.search(r"\{\{Grundformverweis[^\}]*\|([^}|]+)[^}]*\}\}", wikitext)
+    if gfv_match and current_id <= max_records:
+        evidence.append({
+            "id": current_id,
+            "title": title,
+            "revid": revid,
+            "text": f"Grundform: {gfv_match.group(1).strip()}"
+        })
+        current_id += 1
+
+    # Extract lines starting with # (standard definitions in en/de Wiktionary)
+    if current_id <= max_records:
+        for line in wikitext.splitlines():
+            line_str = line.strip()
+            if line_str.startswith("#") and not line_str.startswith("#*") and not line_str.startswith("##"):
+                c = clean_wiki_text(line_str)
+                if c and len(c) > 3 and not any(e["text"] == c for e in evidence):
                     evidence.append({
                         "id": current_id,
                         "title": title,
