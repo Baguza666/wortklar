@@ -59,3 +59,20 @@ class GoetheA1HubTests(unittest.TestCase):
 
         pm = record_word_interaction("testwort", action="master")
         self.assertEqual(pm["status"], "mastered")
+
+    def test_pos_and_article_filters(self):
+        """Verify filtering words by der, die, das, verbs, and adjectives."""
+        res_der = self.client.get("/api/a1/hub?pos=der")
+        self.assertEqual(res_der.status_code, 200)
+        data_der = res_der.get_json()
+        self.assertGreater(len(data_der["words"]), 0)
+        for w in data_der["words"]:
+            self.assertEqual(w["article"], "der")
+
+        res_verb = self.client.get("/api/a1/hub?pos=verb")
+        self.assertEqual(res_verb.status_code, 200)
+        data_verb = res_verb.get_json()
+        self.assertGreater(len(data_verb["words"]), 0)
+        for w in data_verb["words"]:
+            self.assertEqual(w["part_of_speech"], "verb")
+

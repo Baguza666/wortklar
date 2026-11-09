@@ -34,7 +34,7 @@
    * German Text-to-Speech synthesis using native Web Speech API.
    * Completely offline, instantaneous, zero dependencies.
    */
-  function speakGerman(text) {
+  function speakGerman(text, onStart, onEnd) {
     if (!('speechSynthesis' in window)) return;
     try {
       window.speechSynthesis.cancel();
@@ -43,24 +43,37 @@
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'de-DE';
       utterance.rate = 0.88; // Comfortable pace for German learners
+      if (onStart) utterance.onstart = onStart;
+      if (onEnd) {
+        utterance.onend = onEnd;
+        utterance.onerror = onEnd;
+      }
       window.speechSynthesis.speak(utterance);
-    } catch (_) {}
+    } catch (_) {
+      if (onEnd) onEnd();
+    }
   }
 
   /**
-   * Audio pronunciation button generator.
+   * Audio pronunciation button generator with tactile pulse feedback.
    */
   function createAudioButton(text) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'btn-audio-speak';
+    btn.className = 'btn-audio-speak audio-btn';
     btn.setAttribute('aria-label', `Listen to German pronunciation: ${text}`);
     btn.title = 'Listen to German pronunciation';
     btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      speakGerman(text);
+      btn.classList.add('is-playing');
+      speakGerman(
+        text,
+        () => btn.classList.add('is-playing'),
+        () => btn.classList.remove('is-playing')
+      );
+      setTimeout(() => btn.classList.remove('is-playing'), 1400);
     });
     return btn;
   }
@@ -403,9 +416,13 @@
     lookupAbortController = new AbortController();
     const requestId = ++latestLookupRequestId;
 
-    // Synchronize input and URL hash
+    // Synchronize input, URL hash, and active view tabs
     searchInput.value = query;
     window.location.hash = encodeURIComponent(query);
+    const tabSearch = document.getElementById('tab-btn-search');
+    const tabHub = document.getElementById('tab-btn-hub');
+    tabSearch?.classList.add('active');
+    tabHub?.classList.remove('active');
 
     // Instant local cache check (0ms response)
     if (lookupCache.has(query)) {
@@ -691,6 +708,15 @@
       const srcBadge = el('span', 'entry-source-badge', srcText);
       titleRow.appendChild(srcBadge);
     }
+
+    const backHubBtn = el('button', 'back-to-hub-btn', '🎯 A1 Hub');
+    backHubBtn.type = 'button';
+    backHubBtn.title = 'Switch back to Goethe A1 Curriculum Hub';
+    backHubBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchToHubView();
+    });
+    titleRow.appendChild(backHubBtn);
 
     header.appendChild(titleRow);
     card.appendChild(header);
@@ -1418,13 +1444,38 @@
   // ==========================================================================
   let activeA1Category = 'all';
   let activeA1Difficulty = 'all';
+  let activeA1Pos = 'all';
+  let a1StudyMode = 'list'; // 'list' | 'flashcard'
+
+  function switchToHubView() {
+    const tabSearch = document.getElementById('tab-btn-search');
+    const tabHub = document.getElementById('tab-btn-hub');
+    tabHub?.classList.add('active');
+    tabSearch?.classList.remove('active');
+    firstUseView.style.display = 'block';
+    dynamicContent.innerHTML = '';
+    window.location.hash = '';
+    const hubEl = document.getElementById('goethe-a1-hub');
+    if (hubEl) {
+      hubEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    loadA1Dashboard();
+  }
+
+  function switchToSearchView() {
+    const tabSearch = document.getElementById('tab-btn-search');
+    const tabHub = document.getElementById('tab-btn-hub');
+    tabSearch?.classList.add('active');
+    tabHub?.classList.remove('active');
+    searchInput?.focus();
+  }
 
   async function loadA1Dashboard() {
     const grid = document.getElementById('a1-words-grid');
     if (!grid) return;
 
     try {
-      const resp = await fetch(`/api/a1/hub?category=${encodeURIComponent(activeA1Category)}&difficulty=${encodeURIComponent(activeA1Difficulty)}`);
+      const resp = await fetch(`/api/a1/hub?category=${encodeURIComponent(activeA1Category)}&difficulty=${encodeURIComponent(activeA1Difficulty)}&pos=${encodeURIComponent(activeA1Pos)}`);
       if (!resp.ok) return;
       const data = await resp.json();
 
@@ -1432,6 +1483,9 @@
       const stats = data.stats || {};
       const overallPct = document.getElementById('a1-overall-pct');
       if (overallPct) overallPct.textContent = `${stats.percentage || 0}%`;
+
+      const navPctBadge = document.getElementById('nav-pct-badge');
+      if (navPctBadge) navPctBadge.textContent = `${stats.percentage || 0}%`;
 
       const barMastered = document.getElementById('a1-bar-mastered');
       const barLearning = document.getElementById('a1-bar-learning');
@@ -1462,7 +1516,7 @@
     grid.innerHTML = '';
 
     if (!words || words.length === 0) {
-      const emptyDiv = el('div', 'state-card', 'No words match the selected category or difficulty.');
+      const emptyDiv = el('div', 'state-card', 'No words match the selected category, article, or difficulty.');
       grid.appendChild(emptyDiv);
       return;
     }
@@ -1499,15 +1553,38 @@
       top.appendChild(pills);
       card.appendChild(top);
 
-      // Meaning
-      if (w.english) {
-        card.appendChild(el('div', 'a1-card-meaning', w.english));
-      }
+      // Meaning & Examples (Adaptive Flashcard Quiz vs List)
+      if (a1StudyMode === 'flashcard') {
+        const quizWrap = el('div', 'flashcard-quiz-wrapper');
+        const hiddenContent = el('div', 'flashcard-content-hidden');
+        if (w.english) {
+          hiddenContent.appendChild(el('div', 'a1-card-meaning', w.english));
+        }
+        if (w.example_de) {
+          const exDiv = el('div', 'a1-card-example', `„${w.example_de}“`);
+          hiddenContent.appendChild(exDiv);
+        }
+        quizWrap.appendChild(hiddenContent);
 
-      // Authentic Example
-      if (w.example_de) {
-        const exDiv = el('div', 'a1-card-example', `„${w.example_de}“`);
-        card.appendChild(exDiv);
+        const revealBtn = el('button', 'flashcard-overlay-btn', '👁️ Tap to reveal');
+        revealBtn.type = 'button';
+        revealBtn.title = 'Reveal English translation and example';
+        quizWrap.appendChild(revealBtn);
+
+        const doReveal = (e) => {
+          e.stopPropagation();
+          quizWrap.classList.toggle('revealed');
+        };
+        quizWrap.addEventListener('click', doReveal);
+        card.appendChild(quizWrap);
+      } else {
+        if (w.english) {
+          card.appendChild(el('div', 'a1-card-meaning', w.english));
+        }
+        if (w.example_de) {
+          const exDiv = el('div', 'a1-card-example', `„${w.example_de}“`);
+          card.appendChild(exDiv);
+        }
       }
 
       // Actions
@@ -1517,11 +1594,22 @@
       masterBtn.type = 'button';
       masterBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const nextAction = masterBtn.classList.contains('is-mastered') ? 'learn' : 'master';
+        const wasMastered = masterBtn.classList.contains('is-mastered');
+        const nextAction = wasMastered ? 'learn' : 'master';
         masterBtn.disabled = true;
         await trackWordAction(w.headword, nextAction);
         masterBtn.disabled = false;
-        loadA1Dashboard();
+        if (nextAction === 'master') {
+          masterBtn.classList.add('is-mastered');
+          masterBtn.textContent = '🎉 Mastered!';
+          setTimeout(() => {
+            loadA1Dashboard();
+          }, 350);
+        } else {
+          masterBtn.classList.remove('is-mastered');
+          masterBtn.textContent = '+ Mark Mastered';
+          loadA1Dashboard();
+        }
       });
       actions.appendChild(masterBtn);
       card.appendChild(actions);
@@ -1547,6 +1635,7 @@
   }
 
   function initA1Chips() {
+    // Category chips
     const catChips = document.querySelectorAll('#a1-category-chips .a1-chip');
     catChips.forEach(chip => {
       chip.addEventListener('click', () => {
@@ -1557,6 +1646,7 @@
       });
     });
 
+    // Difficulty chips
     const diffChips = document.querySelectorAll('#a1-diff-chips .a1-mini-chip');
     diffChips.forEach(chip => {
       chip.addEventListener('click', () => {
@@ -1564,6 +1654,64 @@
         chip.classList.add('active');
         activeA1Difficulty = chip.getAttribute('data-diff') || 'all';
         loadA1Dashboard();
+      });
+    });
+
+    // POS / Article chips
+    const posChips = document.querySelectorAll('#a1-pos-chips .a1-mini-chip');
+    posChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        posChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeA1Pos = chip.getAttribute('data-pos') || 'all';
+        loadA1Dashboard();
+      });
+    });
+
+    // Study Mode (List vs Flashcard)
+    const btnList = document.getElementById('btn-mode-list');
+    const btnFlashcard = document.getElementById('btn-mode-flashcard');
+    btnList?.addEventListener('click', () => {
+      btnList.classList.add('active');
+      btnFlashcard?.classList.remove('active');
+      a1StudyMode = 'list';
+      loadA1Dashboard();
+    });
+    btnFlashcard?.addEventListener('click', () => {
+      btnFlashcard.classList.add('active');
+      btnList?.classList.remove('active');
+      a1StudyMode = 'flashcard';
+      loadA1Dashboard();
+    });
+  }
+
+  function initViewTabs() {
+    const tabSearch = document.getElementById('tab-btn-search');
+    const tabHub = document.getElementById('tab-btn-hub');
+    tabSearch?.addEventListener('click', () => switchToSearchView());
+    tabHub?.addEventListener('click', () => switchToHubView());
+  }
+
+  function initUmlautBar() {
+    const umlautBtns = document.querySelectorAll('.umlaut-btn');
+    umlautBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const char = btn.getAttribute('data-char');
+        if (!char || !searchInput) return;
+
+        const start = searchInput.selectionStart ?? searchInput.value.length;
+        const end = searchInput.selectionEnd ?? searchInput.value.length;
+        const oldVal = searchInput.value;
+        const newVal = oldVal.slice(0, start) + char + oldVal.slice(end);
+        searchInput.value = newVal;
+
+        const newPos = start + char.length;
+        searchInput.setSelectionRange(newPos, newPos);
+        searchInput.focus();
+
+        // Dispatch input event so clear button updates & live logic triggers if needed
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
       });
     });
   }
@@ -1645,6 +1793,8 @@
 
   // Run immediately as DOM is already parsed
   checkInitialStatus();
+  initViewTabs();
+  initUmlautBar();
   initA1Chips();
   loadA1Dashboard();
   handleHashLookup();

@@ -1995,6 +1995,313 @@ kbd {
   cursor: pointer;
 }
 
+/* Top View Switcher Tabs */
+.view-tabs-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  background: var(--highlight-bg);
+  padding: 5px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+  max-width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.view-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.view-tab-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-hover);
+}
+
+.view-tab-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+
+.nav-pct-badge {
+  display: inline-block;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.view-tab-btn.active .nav-pct-badge {
+  background: #ffffff;
+  color: var(--primary);
+}
+
+/* Quick Umlauts Mobile Keyboard Bar */
+.umlaut-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.umlaut-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 2px;
+}
+
+.umlaut-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 34px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.umlaut-btn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.umlaut-btn:active {
+  transform: scale(0.92);
+}
+
+/* A1 Filter Rows */
+.a1-secondary-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.a1-article-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.a1-filter-subgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Study Mode Toggle (List vs Flashcard) */
+.a1-mode-toggle {
+  display: inline-flex;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  box-shadow: var(--shadow-sm);
+}
+
+.a1-mode-btn {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.a1-mode-btn:hover {
+  color: var(--text-main);
+}
+
+.a1-mode-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.25);
+}
+
+/* Article Chips Styling (der, die, das) */
+.chip-der {
+  color: #2563eb !important;
+  border-color: #93c5fd !important;
+}
+[data-theme="dark"] .chip-der {
+  color: #60a5fa !important;
+  border-color: #1e3a8a !important;
+}
+.chip-der.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+.chip-die {
+  color: #db2777 !important;
+  border-color: #fbcfe8 !important;
+}
+[data-theme="dark"] .chip-die {
+  color: #f472b6 !important;
+  border-color: #831843 !important;
+}
+.chip-die.active {
+  background: #db2777 !important;
+  color: #ffffff !important;
+  border-color: #db2777 !important;
+}
+
+.chip-das {
+  color: #059669 !important;
+  border-color: #a7f3d0 !important;
+}
+[data-theme="dark"] .chip-das {
+  color: #34d399 !important;
+  border-color: #064e3b !important;
+}
+.chip-das.active {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+}
+
+/* Flashcard Quiz Interactive Reveal */
+.flashcard-quiz-wrapper {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-top: 6px;
+  min-height: 54px;
+}
+
+.flashcard-content-hidden {
+  filter: blur(7px);
+  opacity: 0.3;
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.25s ease, opacity 0.25s ease;
+}
+
+.flashcard-overlay-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  z-index: 2;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.flashcard-overlay-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+.flashcard-quiz-wrapper.revealed .flashcard-content-hidden {
+  filter: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.flashcard-quiz-wrapper.revealed .flashcard-overlay-btn {
+  display: none;
+}
+
+/* Audio button active pulse */
+.audio-btn.is-playing {
+  color: #10b981 !important;
+  transform: scale(1.22);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+/* Navigation Back to A1 Hub Link */
+.back-to-hub-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid var(--primary-border);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.back-to-hub-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
 
 
 

@@ -403,9 +403,10 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
         """Get Goethe A1 curriculum words, progress stats, and category filters."""
         category = request.args.get("category", "all")
         difficulty = request.args.get("difficulty", "all")
+        pos = request.args.get("pos", "all")
         try:
             from wortklar.progress import get_a1_hub_data
-            data = get_a1_hub_data(category_filter=category, difficulty_filter=difficulty)
+            data = get_a1_hub_data(category_filter=category, difficulty_filter=difficulty, pos_filter=pos)
             return jsonify(data)
         except Exception as ex:
             return jsonify({"error": "hub_failed", "message": str(ex)}), 500

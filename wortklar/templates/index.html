@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Wortklar · German → English Dictionary</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7">
 </head>
 <body>
   <div class="app-container">
@@ -35,8 +35,20 @@
     </header>
 
     <main>
-      <!-- Search Form -->
-      <section class="search-section" aria-label="Dictionary search">
+      <!-- Top View Switcher Tabs -->
+      <nav class="view-tabs-nav" aria-label="Main Navigation">
+        <button type="button" id="tab-btn-search" class="view-tab-btn active" data-view="search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Dictionary Search
+        </button>
+        <button type="button" id="tab-btn-hub" class="view-tab-btn" data-view="hub">
+          <span class="tab-badge-icon" aria-hidden="true">🎯</span>
+          A1 Exam Hub <span id="nav-pct-badge" class="nav-pct-badge">0%</span>
+        </button>
+      </nav>
+
+      <!-- Search Form Section -->
+      <section id="search-section" class="search-section" aria-label="Dictionary search">
         <form id="search-form" class="search-form" role="search" onsubmit="return false;">
           <label for="search-input" class="search-label">German word or inflected form</label>
           <div class="search-input-wrapper">
@@ -51,7 +63,7 @@
               id="search-input"
               class="search-input"
               name="q"
-              placeholder="e.g. Haus, Häuser, gehen, ging, gut, schön"
+              placeholder="e.g. Haus, Häuser, gehen, ging, relativ klein, viele"
               autocomplete="off"
               autocorrect="off"
               autocapitalize="none"
@@ -66,6 +78,19 @@
             <kbd class="search-kbd" title="Press / to focus search">/</kbd>
             <button type="submit" id="search-btn" class="search-btn">Search</button>
           </div>
+
+          <!-- Quick Umlauts Keyboard Helper for Mobile / Phone -->
+          <div class="umlaut-bar" aria-label="Quick German character insert">
+            <span class="umlaut-label">Quick insert:</span>
+            <button type="button" class="umlaut-btn" data-char="ä" title="Insert ä">ä</button>
+            <button type="button" class="umlaut-btn" data-char="ö" title="Insert ö">ö</button>
+            <button type="button" class="umlaut-btn" data-char="ü" title="Insert ü">ü</button>
+            <button type="button" class="umlaut-btn" data-char="ß" title="Insert ß">ß</button>
+            <button type="button" class="umlaut-btn" data-char="Ä" title="Insert Ä">Ä</button>
+            <button type="button" class="umlaut-btn" data-char="Ö" title="Insert Ö">Ö</button>
+            <button type="button" class="umlaut-btn" data-char="Ü" title="Insert Ü">Ü</button>
+          </div>
+
           <!-- Live Keyboard Suggestion Dropdown (appears strictly after >= 4 letters) -->
           <ul id="suggestion-list" class="suggestion-list hidden" role="listbox" aria-label="Suggestions"></ul>
         </form>
@@ -121,16 +146,37 @@
               <button type="button" class="a1-chip" data-cat="health">🏥 Health & Body</button>
             </div>
 
-            <!-- Difficulty & Status Filter -->
+            <!-- Difficulty, Grammar & Study Mode Filter Rows -->
             <div class="a1-secondary-filter-row">
+              <div class="a1-filter-subgroup">
+                <span class="subfilter-label">Study Mode:</span>
+                <div class="a1-mode-toggle" role="radiogroup" aria-label="A1 Study Mode">
+                  <button type="button" id="btn-mode-list" class="a1-mode-btn active" data-mode="list">📋 List</button>
+                  <button type="button" id="btn-mode-flashcard" class="a1-mode-btn" data-mode="flashcard">🎴 Flashcard Quiz</button>
+                </div>
+              </div>
+
               <div class="a1-filter-subgroup">
                 <span class="subfilter-label">Difficulty:</span>
                 <div id="a1-diff-chips" class="a1-diff-chips">
                   <button type="button" class="a1-mini-chip active" data-diff="all">All</button>
                   <button type="button" class="a1-mini-chip" data-diff="easy">🟢 Easy</button>
                   <button type="button" class="a1-mini-chip" data-diff="medium">🟡 Medium</button>
-                  <button type="button" class="a1-mini-chip" data-diff="hard">🔥 Hard (Searched 3x+)</button>
+                  <button type="button" class="a1-mini-chip" data-diff="hard">🔥 Hard (3x+)</button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Article & Part of Speech Row -->
+            <div class="a1-article-filter-row">
+              <span class="subfilter-label">Articles & Words:</span>
+              <div id="a1-pos-chips" class="a1-diff-chips">
+                <button type="button" class="a1-mini-chip active" data-pos="all">All Words</button>
+                <button type="button" class="a1-mini-chip chip-der" data-pos="der">🔵 der (Masc)</button>
+                <button type="button" class="a1-mini-chip chip-die" data-pos="die">🔴 die (Fem)</button>
+                <button type="button" class="a1-mini-chip chip-das" data-pos="das">🟢 das (Neut)</button>
+                <button type="button" class="a1-mini-chip" data-pos="verb">⚡ Verbs</button>
+                <button type="button" class="a1-mini-chip" data-pos="adj">✨ Adjectives</button>
               </div>
             </div>
           </div>
@@ -181,7 +227,7 @@
     </footer>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=6"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=7"></script>
 </body>
 </html>
 

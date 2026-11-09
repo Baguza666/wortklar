@@ -135,9 +135,14 @@ def record_word_interaction(
     return entry
 
 
-def get_a1_hub_data(category_filter: Optional[str] = None, difficulty_filter: Optional[str] = None) -> Dict[str, Any]:
+def get_a1_hub_data(
+    category_filter: Optional[str] = None,
+    difficulty_filter: Optional[str] = None,
+    pos_filter: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Get full A1 Curriculum Hub data with progress, stats, and filtered wordlist.
+    Supports filtering by topic category, smart difficulty, and article / part of speech.
     """
     words = load_goethe_words()
     progress = load_user_progress()
@@ -212,6 +217,16 @@ def get_a1_hub_data(category_filter: Optional[str] = None, difficulty_filter: Op
             continue
         if difficulty_filter and difficulty_filter != "all" and diff != difficulty_filter:
             continue
+        if pos_filter and pos_filter != "all":
+            art = (w.get("article") or "").lower()
+            w_pos = (w.get("part_of_speech") or "").lower()
+            if pos_filter in ("der", "die", "das"):
+                if art != pos_filter:
+                    continue
+            elif pos_filter == "verb" and w_pos != "verb":
+                continue
+            elif pos_filter == "adj" and w_pos != "adj":
+                continue
 
         items.append({
             "headword": w["headword"],
@@ -235,3 +250,4 @@ def get_a1_hub_data(category_filter: Optional[str] = None, difficulty_filter: Op
         "words": items,
         "categories": category_names
     }
+
