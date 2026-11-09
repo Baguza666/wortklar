@@ -501,10 +501,11 @@ kbd {
   padding: 2px 6px;
   font-size: 0.8125rem;
   font-family: monospace;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  background: var(--highlight-bg);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Did You Mean & Lookalike Banners */
@@ -766,8 +767,8 @@ kbd {
 .sense-tag {
   display: inline-block;
   font-size: 0.75rem;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--tag-bg);
+  color: var(--tag-text);
   padding: 1px 6px;
   border-radius: 4px;
   margin-left: 6px;
@@ -776,7 +777,7 @@ kbd {
 /* Bilingual Examples */
 .examples-section {
   margin-bottom: 20px;
-  background: #f8fafc;
+  background: var(--highlight-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -1072,8 +1073,8 @@ kbd {
 }
 
 .online-result-card {
-  background: #ffffff;
-  border: 2px solid #bae6fd;
+  background: var(--card-bg);
+  border: 2px solid var(--accent);
   border-radius: var(--radius-lg);
   padding: 20px;
   margin-top: 16px;
@@ -1084,7 +1085,7 @@ kbd {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  border-bottom: 1px solid #e0f2fe;
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 12px;
   margin-bottom: 12px;
   flex-wrap: wrap;
@@ -1095,7 +1096,7 @@ kbd {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: #0284c7;
+  background: var(--accent);
   color: #ffffff;
   padding: 3px 8px;
   border-radius: var(--radius-sm);
@@ -1104,12 +1105,13 @@ kbd {
 .online-headword {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #0c4a6e;
+  color: var(--text-main);
 }
 
 .ai-explanation-box {
-  background: #fdf4ff;
-  border: 1px solid #f0abfc;
+  background: var(--highlight-bg);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--primary);
   border-radius: var(--radius-md);
   padding: 14px 16px;
   margin: 14px 0;
@@ -1126,7 +1128,7 @@ kbd {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  background: #a855f7;
+  background: var(--primary);
   color: #ffffff;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -1134,14 +1136,14 @@ kbd {
 
 .ai-text {
   font-size: 0.9375rem;
-  color: #4a044e;
+  color: var(--text-main);
   line-height: 1.5;
 }
 
 .ai-note {
   margin-top: 6px;
   font-size: 0.8125rem;
-  color: #86198f;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -1149,8 +1151,8 @@ kbd {
   display: inline-block;
   font-size: 0.75rem;
   font-weight: 600;
-  background: #fae8ff;
-  color: #a855f7;
+  background: var(--tag-bg);
+  color: var(--accent);
   padding: 1px 5px;
   border-radius: 3px;
   margin-left: 4px;
@@ -1180,7 +1182,7 @@ kbd {
 
 .evidence-item {
   font-size: 0.8125rem;
-  background: #f8fafc;
+  background: var(--highlight-bg);
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
@@ -1318,7 +1320,7 @@ kbd {
   padding: 12px 14px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  background: #ffffff;
+  background: var(--card-bg);
   color: var(--text-main);
   box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
