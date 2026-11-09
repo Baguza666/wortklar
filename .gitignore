@@ -15,11 +15,12 @@ ENV/
 *.db-wal
 *.db-shm
 *.db.tmp*
-data/
+/data/
 downloads/
 raw_data/
 *.jsonl
 *.jsonl.gz
+!wortklar/data/
 
 # Test artifacts & screenshots
 screenshots/
@@ -31,6 +32,8 @@ htmlcov/
 .env
 .env.*
 *.secret
+user_progress.json
+user_progress.json.*
 
 # OS / Editor
 .DS_Store

@@ -1600,6 +1600,402 @@ kbd {
   font-style: italic;
 }
 
+/* ==========================================================================
+   Goethe & telc A1 Curriculum Dashboard & Progress Tracker
+   ========================================================================== */
+.a1-dashboard-view {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.a1-dashboard-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.a1-header-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.a1-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.a1-exam-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
+.a1-dashboard-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.a1-overall-pct {
+  font-size: 1.85rem;
+  font-weight: 900;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.a1-dashboard-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Dual Progress Bar */
+.a1-progress-bar-container {
+  margin-top: 16px;
+}
+
+.a1-progress-bar-track {
+  width: 100%;
+  height: 10px;
+  background: var(--highlight-bg);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  position: relative;
+}
+
+.a1-bar-fill {
+  height: 100%;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.a1-bar-mastered {
+  background: #10b981; /* Emerald green */
+}
+
+.a1-bar-learning {
+  background: #f59e0b; /* Amber yellow */
+}
+
+.a1-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.a1-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-mastered { background: #10b981; }
+.dot-learning { background: #f59e0b; }
+.dot-unseen { background: var(--text-dim); }
+
+/* Thematic Category Filter Chips */
+.a1-filter-section {
+  margin-bottom: 20px;
+}
+
+.a1-filter-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.a1-chips-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.a1-chip {
+  white-space: nowrap;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.a1-chip:hover {
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+
+.a1-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.a1-secondary-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.a1-filter-subgroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.subfilter-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.a1-diff-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.a1-mini-chip {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.a1-mini-chip.active {
+  background: var(--highlight-bg);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Words Grid */
+.a1-words-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.a1-word-card {
+  background: var(--highlight-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.a1-word-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.a1-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.a1-card-headword-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.a1-card-headword {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.a1-card-headword:hover {
+  color: var(--primary);
+}
+
+.a1-card-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.diff-badge-easy { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.diff-badge-medium { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.diff-badge-hard { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
+
+.a1-card-meaning {
+  font-size: 0.875rem;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+.a1-card-example {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.35;
+  border-left: 2px solid var(--border-color);
+  padding-left: 8px;
+}
+
+.a1-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.btn-master-toggle {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 34px;
+}
+
+.btn-master-toggle:hover {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.btn-master-toggle.is-mastered {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+/* In-Entry Card Goethe Badge & Quick Action */
+.goethe-a1-entry-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.08));
+  border: 1px solid var(--primary-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.goethe-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.goethe-banner-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: var(--primary);
+  color: #ffffff;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.04em;
+}
+
+.goethe-banner-text {
+  font-size: 0.875rem;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.a1-tips-details {
+  margin-top: 24px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+
+.a1-tips-summary {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+
 
 
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Wortklar · German → English Dictionary</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
 </head>
 <body>
   <div class="app-container">
@@ -76,22 +76,82 @@
 
       <!-- Main Results Area -->
       <section id="results-container" class="results-container" aria-label="Lookup results">
-        <!-- First Use State (Default) -->
-        <div id="first-use-view" class="state-card first-use-card">
-          <h2>Willkommen bei Wortklar!</h2>
-          <p>
-            Wortklar is your companion for learning German. Look up any word or inflected form to see clear English meanings,
-            crucial A1 grammar (articles, plurals, auxiliary verbs), and authentic bilingual examples.
-          </p>
-          <div class="first-use-tips">
-            <h3>Quick Tips for Learners</h3>
-            <ul>
-              <li><strong>Type 4+ letters:</strong> Autocomplete suggestions appear as a keyboard list without replacing your input.</li>
-              <li><strong>Short words work directly:</strong> Press <kbd>Enter</kbd> or click <em>Search</em> to look up short words like <a href="#in" class="example-link">in</a>, <a href="#Ei" class="example-link">Ei</a>, or <a href="#bin" class="example-link">bin</a>.</li>
-              <li><strong>Inflected forms:</strong> Search forms directly (e.g. <a href="#Häuser" class="example-link">Häuser</a> → Haus, <a href="#ging" class="example-link">ging</a> → gehen, <a href="#besser" class="example-link">besser</a> → gut).</li>
-              <li><strong>Spelling assistance:</strong> Typos and missing umlauts (<a href="#hauser" class="example-link">hauser</a>, <a href="#shcön" class="example-link">shcön</a>, <a href="#schon" class="example-link">schon</a> vs <a href="#schön" class="example-link">schön</a>) are clearly explained.</li>
-            </ul>
+        <!-- A1 Curriculum Dashboard & First Use View -->
+        <div id="first-use-view" class="a1-dashboard-view">
+          <div class="a1-dashboard-header">
+            <div class="a1-header-title-row">
+              <div class="a1-title-group">
+                <span class="a1-exam-badge">GOETHE · TELC A1</span>
+                <h2 class="a1-dashboard-title">Official A1 Exam Curriculum</h2>
+              </div>
+              <div id="a1-overall-pct" class="a1-overall-pct">0%</div>
+            </div>
+            <p class="a1-dashboard-subtitle">Master the 500+ essential German words required to pass your A1 exam. Words you search are automatically tracked below.</p>
+
+            <!-- Dual Progress Bar -->
+            <div class="a1-progress-bar-container">
+              <div class="a1-progress-bar-track">
+                <div id="a1-bar-mastered" class="a1-bar-fill a1-bar-mastered" style="width: 0%;"></div>
+                <div id="a1-bar-learning" class="a1-bar-fill a1-bar-learning" style="width: 0%;"></div>
+              </div>
+            </div>
+
+            <!-- Stats Counts -->
+            <div class="a1-stats-row">
+              <div class="a1-stat-item"><span class="stat-dot dot-mastered"></span> <strong id="stat-mastered-count">0</strong> Mastered</div>
+              <div class="a1-stat-item"><span class="stat-dot dot-learning"></span> <strong id="stat-learning-count">0</strong> Learning</div>
+              <div class="a1-stat-item"><span class="stat-dot dot-unseen"></span> <strong id="stat-unseen-count">506</strong> To Learn</div>
+            </div>
           </div>
+
+          <!-- 10 Thematic Category Filter Chips -->
+          <div class="a1-filter-section">
+            <div class="a1-filter-label">10 Practical A1 Themes:</div>
+            <div id="a1-category-chips" class="a1-chips-scroll" role="tablist" aria-label="A1 Categories">
+              <button type="button" class="a1-chip active" data-cat="all">All Topics (506)</button>
+              <button type="button" class="a1-chip" data-cat="conversation">💬 Basics & Greetings</button>
+              <button type="button" class="a1-chip" data-cat="food">🍽️ Food & Drink</button>
+              <button type="button" class="a1-chip" data-cat="travel">🚆 Travel & Transport</button>
+              <button type="button" class="a1-chip" data-cat="housing">🏠 Housing & Living</button>
+              <button type="button" class="a1-chip" data-cat="work">💼 Work & Study</button>
+              <button type="button" class="a1-chip" data-cat="time">⏰ Time & Calendar</button>
+              <button type="button" class="a1-chip" data-cat="shopping">🛍️ Shopping & Money</button>
+              <button type="button" class="a1-chip" data-cat="family">👨‍👩‍👧 Family & People</button>
+              <button type="button" class="a1-chip" data-cat="weather">🌤️ Weather & Nature</button>
+              <button type="button" class="a1-chip" data-cat="health">🏥 Health & Body</button>
+            </div>
+
+            <!-- Difficulty & Status Filter -->
+            <div class="a1-secondary-filter-row">
+              <div class="a1-filter-subgroup">
+                <span class="subfilter-label">Difficulty:</span>
+                <div id="a1-diff-chips" class="a1-diff-chips">
+                  <button type="button" class="a1-mini-chip active" data-diff="all">All</button>
+                  <button type="button" class="a1-mini-chip" data-diff="easy">🟢 Easy</button>
+                  <button type="button" class="a1-mini-chip" data-diff="medium">🟡 Medium</button>
+                  <button type="button" class="a1-mini-chip" data-diff="hard">🔥 Hard (Searched 3x+)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Word Cards Grid -->
+          <div id="a1-words-grid" class="a1-words-grid" aria-label="A1 Vocabulary List">
+            <div class="a1-loading-state">Loading Goethe A1 curriculum...</div>
+          </div>
+
+          <!-- Quick Tips Disclosure -->
+          <details class="a1-tips-details">
+            <summary class="a1-tips-summary">💡 Quick Search Tips for A1 Learners</summary>
+            <div class="first-use-tips">
+              <ul>
+                <li><strong>Autocomplete:</strong> Type 4+ letters to see suggestions without losing your place.</li>
+                <li><strong>Short words work directly:</strong> Press <kbd>Enter</kbd> to search words like <a href="#in" class="example-link">in</a>, <a href="#Ei" class="example-link">Ei</a>, or <a href="#bin" class="example-link">bin</a>.</li>
+                <li><strong>Inflected forms:</strong> Search forms directly (e.g. <a href="#viele" class="example-link">viele</a> → viel, <a href="#Häuser" class="example-link">Häuser</a> → Haus, <a href="#ging" class="example-link">ging</a> → gehen).</li>
+                <li><strong>Multi-word expressions:</strong> Phrases like <a href="#relativ%20klein" class="example-link">relativ klein</a> or <a href="#ab%20und%20zu" class="example-link">ab und zu</a> break down into word components with instant AI tutor analysis.</li>
+              </ul>
+            </div>
+          </details>
         </div>
 
         <!-- Result Views inserted dynamically via safe DOM methods -->
@@ -121,7 +181,7 @@
     </footer>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}?v=5"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v=6"></script>
 </body>
 </html>
 

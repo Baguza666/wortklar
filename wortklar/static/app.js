@@ -553,7 +553,7 @@
     // Case 5: Render entry cards
     if (hasExact) {
       data.exact_entries.forEach(entry => {
-        renderEntryCard(entry);
+        renderEntryCard(entry, data.goethe_a1);
       });
     }
 
@@ -660,7 +660,7 @@
   /**
    * Render individual Entry Card with A1 core forms, senses, examples, and detailed grammar disclosure.
    */
-  function renderEntryCard(entry) {
+  function renderEntryCard(entry, goetheInfo) {
     const card = el('article', 'entry-card');
 
     // Header
@@ -694,6 +694,38 @@
 
     header.appendChild(titleRow);
     card.appendChild(header);
+
+    // Goethe A1 Curriculum Banner & 1-Tap Mastery Toggle
+    if (goetheInfo && goetheInfo.headword && goetheInfo.headword.toLowerCase() === entry.headword.toLowerCase()) {
+      const gBanner = el('div', 'goethe-a1-entry-banner');
+      const gLeft = el('div', 'goethe-banner-left');
+      gLeft.appendChild(el('span', 'goethe-banner-badge', '🎯 GOETHE A1 ESSENTIAL'));
+
+      const diffClass = goetheInfo.difficulty === 'hard' ? 'diff-badge-hard' : (goetheInfo.difficulty === 'medium' ? 'diff-badge-medium' : 'diff-badge-easy');
+      const diffText = goetheInfo.difficulty === 'hard' ? `🔥 Hard (Searched ${goetheInfo.lookup_count}x)` : (goetheInfo.difficulty === 'medium' ? '🟡 Medium' : '🟢 Easy');
+      gLeft.appendChild(el('span', `diff-badge ${diffClass}`, diffText));
+
+      if (goetheInfo.category) {
+        gLeft.appendChild(el('span', 'assistance-note', `Theme: ${goetheInfo.category}`));
+      }
+      gBanner.appendChild(gLeft);
+
+      // 1-tap mastery button
+      const isMastered = goetheInfo.status === 'mastered';
+      const masterBtn = el('button', `btn-master-toggle ${isMastered ? 'is-mastered' : ''}`, isMastered ? '✓ Mastered' : '+ Mark Mastered');
+      masterBtn.type = 'button';
+      masterBtn.addEventListener('click', async () => {
+        const nextAction = masterBtn.classList.contains('is-mastered') ? 'learn' : 'master';
+        masterBtn.disabled = true;
+        await trackWordAction(entry.headword, nextAction);
+        masterBtn.disabled = false;
+        const nowMastered = nextAction === 'master';
+        masterBtn.classList.toggle('is-mastered', nowMastered);
+        masterBtn.textContent = nowMastered ? '✓ Mastered' : '+ Mark Mastered';
+      });
+      gBanner.appendChild(masterBtn);
+      card.appendChild(gBanner);
+    }
 
     // Core Learner Forms Box (R3 Default View)
     const grammar = entry.grammar || {};
@@ -1381,6 +1413,161 @@
     submitLookup();
   });
 
+  // ==========================================================================
+  // Goethe A1 Curriculum Hub & Progress Tracking
+  // ==========================================================================
+  let activeA1Category = 'all';
+  let activeA1Difficulty = 'all';
+
+  async function loadA1Dashboard() {
+    const grid = document.getElementById('a1-words-grid');
+    if (!grid) return;
+
+    try {
+      const resp = await fetch(`/api/a1/hub?category=${encodeURIComponent(activeA1Category)}&difficulty=${encodeURIComponent(activeA1Difficulty)}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      // Update Header Stats
+      const stats = data.stats || {};
+      const overallPct = document.getElementById('a1-overall-pct');
+      if (overallPct) overallPct.textContent = `${stats.percentage || 0}%`;
+
+      const barMastered = document.getElementById('a1-bar-mastered');
+      const barLearning = document.getElementById('a1-bar-learning');
+      const total = stats.total || 1;
+      const pctMastered = ((stats.mastered || 0) / total) * 100;
+      const pctLearning = ((stats.learning || 0) / total) * 100;
+
+      if (barMastered) barMastered.style.width = `${pctMastered}%`;
+      if (barLearning) barLearning.style.width = `${pctLearning}%`;
+
+      const mCount = document.getElementById('stat-mastered-count');
+      const lCount = document.getElementById('stat-learning-count');
+      const uCount = document.getElementById('stat-unseen-count');
+      if (mCount) mCount.textContent = stats.mastered || 0;
+      if (lCount) lCount.textContent = stats.learning || 0;
+      if (uCount) uCount.textContent = stats.unseen || 0;
+
+      // Render Words Grid
+      renderA1WordsGrid(data.words || []);
+    } catch (err) {
+      console.warn('Failed to load A1 dashboard:', err);
+    }
+  }
+
+  function renderA1WordsGrid(words) {
+    const grid = document.getElementById('a1-words-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (!words || words.length === 0) {
+      const emptyDiv = el('div', 'state-card', 'No words match the selected category or difficulty.');
+      grid.appendChild(emptyDiv);
+      return;
+    }
+
+    words.forEach(w => {
+      const card = el('div', 'a1-word-card');
+
+      // Top row
+      const top = el('div', 'a1-card-top');
+      const hwWrap = el('div', 'a1-card-headword-wrap');
+
+      if (w.article && w.part_of_speech === 'noun') {
+        const artClean = w.article.toLowerCase().trim();
+        const artClass = artClean === 'der' ? 'art-der' : (artClean === 'die' ? 'art-die' : (artClean === 'das' ? 'art-das' : ''));
+        hwWrap.appendChild(el('span', `entry-article ${artClass}`, `${w.article} `));
+      }
+
+      const hwSpan = el('span', 'a1-card-headword', w.headword);
+      hwSpan.title = 'Click to inspect full dictionary entry';
+      hwSpan.addEventListener('click', () => {
+        searchInput.value = w.headword;
+        executeLookup(w.headword);
+      });
+      hwWrap.appendChild(hwSpan);
+      top.appendChild(hwWrap);
+
+      const pills = el('div', 'a1-card-pills');
+      pills.appendChild(createAudioButton(w.headword));
+
+      // Difficulty tag
+      const diffClass = w.difficulty === 'hard' ? 'diff-badge-hard' : (w.difficulty === 'medium' ? 'diff-badge-medium' : 'diff-badge-easy');
+      const diffText = w.difficulty === 'hard' ? `🔥 Hard (${w.lookup_count}x)` : (w.difficulty === 'medium' ? 'Medium' : 'Easy');
+      pills.appendChild(el('span', `diff-badge ${diffClass}`, diffText));
+      top.appendChild(pills);
+      card.appendChild(top);
+
+      // Meaning
+      if (w.english) {
+        card.appendChild(el('div', 'a1-card-meaning', w.english));
+      }
+
+      // Authentic Example
+      if (w.example_de) {
+        const exDiv = el('div', 'a1-card-example', `„${w.example_de}“`);
+        card.appendChild(exDiv);
+      }
+
+      // Actions
+      const actions = el('div', 'a1-card-actions');
+      const isMastered = w.status === 'mastered';
+      const masterBtn = el('button', `btn-master-toggle ${isMastered ? 'is-mastered' : ''}`, isMastered ? '✓ Mastered' : '+ Mark Mastered');
+      masterBtn.type = 'button';
+      masterBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const nextAction = masterBtn.classList.contains('is-mastered') ? 'learn' : 'master';
+        masterBtn.disabled = true;
+        await trackWordAction(w.headword, nextAction);
+        masterBtn.disabled = false;
+        loadA1Dashboard();
+      });
+      actions.appendChild(masterBtn);
+      card.appendChild(actions);
+
+      grid.appendChild(card);
+    });
+  }
+
+  async function trackWordAction(word, action) {
+    try {
+      const csrf = getCsrfToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (csrf) headers['X-CSRF-Token'] = csrf;
+
+      await fetch('/api/a1/track', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ word: word, action: action, csrf_token: csrf })
+      });
+    } catch (err) {
+      console.warn('Track word error:', err);
+    }
+  }
+
+  function initA1Chips() {
+    const catChips = document.querySelectorAll('#a1-category-chips .a1-chip');
+    catChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        catChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeA1Category = chip.getAttribute('data-cat') || 'all';
+        loadA1Dashboard();
+      });
+    });
+
+    const diffChips = document.querySelectorAll('#a1-diff-chips .a1-mini-chip');
+    diffChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        diffChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeA1Difficulty = chip.getAttribute('data-diff') || 'all';
+        loadA1Dashboard();
+      });
+    });
+  }
+
   // Clear search input button
   const clearBtn = document.getElementById('clear-search-btn');
   if (clearBtn) {
@@ -1388,6 +1575,10 @@
       searchInput.value = '';
       clearBtn.classList.add('hidden');
       closeSuggestionList();
+      window.location.hash = '';
+      dynamicContent.innerHTML = '';
+      firstUseView.style.display = 'block';
+      loadA1Dashboard();
       searchInput.focus();
     });
   }
@@ -1454,6 +1645,8 @@
 
   // Run immediately as DOM is already parsed
   checkInitialStatus();
+  initA1Chips();
+  loadA1Dashboard();
   handleHashLookup();
 
   // Listen to hash changes (e.g. browser back/forward or link clicks)

@@ -54,3 +54,4 @@ class ExpressionAndSpeedTests(unittest.TestCase):
         self.assertEqual(validated.phrase, "relativ klein")
         self.assertEqual(validated.english_meaning, "relatively small")
         self.assertEqual(validated.example_sentence, "Mein Zimmer ist relativ klein.")
+

@@ -359,6 +359,30 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
         try:
             conn = get_conn()
             result = lookup_word(conn, q)
+
+            # Check Goethe A1 status & auto-track
+            try:
+                from wortklar.progress import get_goethe_word_info, record_word_interaction
+                g_info = get_goethe_word_info(q)
+                if not g_info and result.get("exact_entries"):
+                    # Check first exact entry headword
+                    g_info = get_goethe_word_info(result["exact_entries"][0]["headword"])
+                if g_info:
+                    tracked = record_word_interaction(g_info["headword"], action="lookup")
+                    result["goethe_a1"] = {
+                        "is_goethe": True,
+                        "headword": g_info["headword"],
+                        "category": g_info["category"],
+                        "english": g_info["english"],
+                        "example_de": g_info["example_de"],
+                        "example_en": g_info["example_en"],
+                        "status": tracked.get("status", "learning"),
+                        "lookup_count": tracked.get("lookup_count", 1),
+                        "difficulty": tracked.get("difficulty", "easy")
+                    }
+            except Exception:
+                pass
+
             if len(_lookup_cache) >= MAX_CACHE_SIZE:
                 _lookup_cache.popitem(last=False)
             _lookup_cache[q] = result
@@ -373,6 +397,35 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> Flask:
             }), 503
         except Exception as ex:
             return jsonify({"error": "server_error", "message": str(ex)}), 500
+
+    @app.route("/api/a1/hub")
+    def api_a1_hub():
+        """Get Goethe A1 curriculum words, progress stats, and category filters."""
+        category = request.args.get("category", "all")
+        difficulty = request.args.get("difficulty", "all")
+        try:
+            from wortklar.progress import get_a1_hub_data
+            data = get_a1_hub_data(category_filter=category, difficulty_filter=difficulty)
+            return jsonify(data)
+        except Exception as ex:
+            return jsonify({"error": "hub_failed", "message": str(ex)}), 500
+
+    @app.route("/api/a1/track", methods=["POST"])
+    def api_a1_track():
+        """Update user progress status or mark word as mastered / learning."""
+        payload = request.get_json(silent=True) or request.form
+        word = payload.get("word", "").strip() if payload else ""
+        if not word:
+            return jsonify({"error": "missing_word"}), 400
+        action = payload.get("action", "master")
+        status = payload.get("status")
+
+        try:
+            from wortklar.progress import record_word_interaction
+            res = record_word_interaction(word, action=action, new_status=status)
+            return jsonify({"success": True, "word": word, "progress": res})
+        except Exception as ex:
+            return jsonify({"error": "track_failed", "message": str(ex)}), 500
 
     @app.route("/api/check_online", methods=["POST"])
     def api_check_online():
