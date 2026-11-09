@@ -22,6 +22,8 @@
   let suggestDebounceTimer = null;
   let suggestAbortController = null;
   let latestSuggestRequestId = 0;
+  let lookupAbortController = null;
+  let latestLookupRequestId = 0;
 
   // Client-side in-memory caches for instant 0ms responses
   const suggestCache = new Map();
@@ -394,7 +396,15 @@
     closeSuggestionList();
     clearStatus();
 
-    // Update URL hash without reload for easy bookmarking/sharing
+    // Abort previous in-flight lookup to eliminate race conditions
+    if (lookupAbortController) {
+      lookupAbortController.abort();
+    }
+    lookupAbortController = new AbortController();
+    const requestId = ++latestLookupRequestId;
+
+    // Synchronize input and URL hash
+    searchInput.value = query;
     window.location.hash = encodeURIComponent(query);
 
     // Instant local cache check (0ms response)
@@ -413,12 +423,19 @@
     dynamicContent.appendChild(loadingCard);
 
     try {
-      const resp = await fetch(`/api/lookup?q=${encodeURIComponent(query)}`);
+      const resp = await fetch(`/api/lookup?q=${encodeURIComponent(query)}`, {
+        signal: lookupAbortController.signal
+      });
       if (resp.status === 401) {
         window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
         return;
       }
       const data = await resp.json();
+
+      // Guard against stale response
+      if (requestId !== latestLookupRequestId) {
+        return;
+      }
 
       dynamicContent.innerHTML = '';
 
@@ -441,6 +458,12 @@
 
       renderLookupResults(data, query);
     } catch (err) {
+      if (err.name === 'AbortError') {
+        return; // Stale lookup aborted, do not clear new state
+      }
+      if (requestId !== latestLookupRequestId) {
+        return;
+      }
       dynamicContent.innerHTML = '';
       showAppErrorState(`Connection error: ${err.message}. Please check if the local server is running.`, query);
     }
@@ -753,12 +776,15 @@
 
     // Senses Section
     if (entry.senses && entry.senses.length > 0) {
+      const realSenses = entry.senses.filter(s => s.gloss_en && s.gloss_en !== 'English meaning unavailable');
+      const visibleSenses = realSenses.length > 0 ? realSenses : entry.senses;
+
       const sensesSec = el('div', 'senses-section');
       const sensesTitle = el('h3', 'senses-title', 'English Meanings:');
       sensesSec.appendChild(sensesTitle);
 
       const ol = el('ol', 'sense-list');
-      entry.senses.forEach(s => {
+      visibleSenses.forEach(s => {
         const li = el('li', 'sense-item');
         const glossEn = el('span', 'sense-gloss-en', s.gloss_en || 'English meaning unavailable');
         li.appendChild(glossEn);
@@ -1009,8 +1035,8 @@
 
     // Online research action for missing entry (R5)
     const actionBox = el('div', 'online-action-box');
-    actionBox.appendChild(el('p', '', 'Or search live Wiktionary directly for newly added entries and definitions:'));
-    const checkBtn = el('button', 'btn-online-check', `Check Wiktionary Online for "${query}"`);
+    actionBox.appendChild(el('p', '', 'Researching live Wiktionary and AI explanations...'));
+    const checkBtn = el('button', 'btn-online-check', `✨ Research "${query}" with AI`);
     checkBtn.id = 'check-wiktionary-btn';
     checkBtn.type = 'button';
     const onlineContainer = el('div', 'online-results-container');
@@ -1022,6 +1048,9 @@
     card.appendChild(actionBox);
 
     dynamicContent.appendChild(card);
+
+    // Automatically trigger AI research so any German word or expression is explained immediately
+    triggerOnlineCheck(query, checkBtn, onlineContainer);
   }
 
   /**

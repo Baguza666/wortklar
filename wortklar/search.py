@@ -359,7 +359,7 @@ def lookup_word(conn: sqlite3.Connection, raw_query: str) -> Dict[str, Any]:
 
     # Step 4: Multi-word phrase / expression breakdown (e.g. "relativ klein", "ab und zu")
     phrase_breakdown = None
-    tokens = [t.strip() for t in q.split() if t.strip()]
+    tokens = [t.strip(".,!?:;\"'()[]{}") for t in q.split() if t.strip(".,!?:;\"'()[]{}")]
     if len(tokens) > 1 and not exact_entries:
         breakdown_words = []
         for token in tokens:
@@ -380,19 +380,32 @@ def lookup_word(conn: sqlite3.Connection, raw_query: str) -> Dict[str, Any]:
             if row_tok:
                 breakdown_words.append(_load_full_entry(conn, row_tok))
             else:
-                # Fallback to search_index
-                cur_s = conn.execute("""
+                # Fallback to forms table for inflected words in the phrase (e.g. viele -> viel)
+                cur_f = conn.execute("""
                     SELECT e.id, e.headword, e.part_of_speech, e.gender, e.article, e.source_edition,
                            e.source_url, e.raw_tags, e.grammar_data, e.etymology_number
-                    FROM search_index s
-                    JOIN entries e ON e.id = s.entry_id
-                    WHERE s.lower_term = ?
-                    ORDER BY s.is_lemma DESC
+                    FROM forms f
+                    JOIN entries e ON e.id = f.entry_id
+                    WHERE f.lower_form = ?
                     LIMIT 1
                 """, (t_lower,))
-                row_s = cur_s.fetchone()
-                if row_s:
-                    breakdown_words.append(_load_full_entry(conn, row_s))
+                row_f = cur_f.fetchone()
+                if row_f:
+                    breakdown_words.append(_load_full_entry(conn, row_f))
+                else:
+                    # Fallback to search_index
+                    cur_s = conn.execute("""
+                        SELECT e.id, e.headword, e.part_of_speech, e.gender, e.article, e.source_edition,
+                               e.source_url, e.raw_tags, e.grammar_data, e.etymology_number
+                        FROM search_index s
+                        JOIN entries e ON e.id = s.entry_id
+                        WHERE s.lower_term = ?
+                        ORDER BY s.is_lemma DESC
+                        LIMIT 1
+                    """, (t_lower,))
+                    row_s = cur_s.fetchone()
+                    if row_s:
+                        breakdown_words.append(_load_full_entry(conn, row_s))
 
         if breakdown_words:
             phrase_breakdown = {
@@ -470,6 +483,53 @@ def _load_full_entry(conn: sqlite3.Connection, row: sqlite3.Row) -> Dict[str, An
             "tags": tags,
             "examples": examples
         })
+
+    # Inherit English senses from base lemma if this entry only has unavailable English glosses
+    has_real_en = any(s["gloss_en"] and s["gloss_en"] != "English meaning unavailable" for s in senses)
+    if not has_real_en:
+        cur_base = conn.execute("""
+            SELECT e.id, e.headword, e.part_of_speech
+            FROM forms f
+            JOIN entries e ON e.id = f.entry_id
+            WHERE f.lower_form = ? AND e.id != ?
+            LIMIT 3
+        """, (headword.lower(), eid))
+        base_rows = cur_base.fetchall()
+
+        inherited = []
+        for b in base_rows:
+            b_id = b["id"]
+            b_hw = b["headword"]
+            cur_bs = conn.execute("""
+                SELECT sense_order, gloss_en, gloss_de, tags, examples
+                FROM senses
+                WHERE entry_id = ? AND gloss_en IS NOT NULL AND gloss_en != 'English meaning unavailable'
+                ORDER BY sense_order ASC
+                LIMIT 3
+            """, (b_id,))
+            for bs in cur_bs.fetchall():
+                exs = []
+                if bs["examples"]:
+                    try:
+                        exs = json.loads(bs["examples"])
+                    except Exception:
+                        pass
+                inherited.append({
+                    "order": len(inherited) + 1,
+                    "gloss_en": f"{bs['gloss_en']} (form of '{b_hw}')",
+                    "gloss_de": bs["gloss_de"],
+                    "tags": ["form-of", f"base: {b_hw}"],
+                    "examples": exs
+                })
+
+        if inherited:
+            # Show inherited real English senses first, keeping any useful German notes
+            senses = inherited + [s for s in senses if s["gloss_en"] != "English meaning unavailable"]
+    else:
+        # Filter out redundant 'English meaning unavailable' entries when real senses exist
+        real_senses = [s for s in senses if s["gloss_en"] != "English meaning unavailable"]
+        if real_senses:
+            senses = real_senses
 
     return {
         "id": eid,
