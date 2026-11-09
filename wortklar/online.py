@@ -57,6 +57,36 @@ class GeminiExplanationSchema(BaseModel):
     )
 
 
+class GeminiExpressionExplanationSchema(BaseModel):
+    """Structured output schema for multi-word German phrases and expressions."""
+    phrase: str = Field(description="The German phrase or expression.")
+    english_meaning: str = Field(
+        ...,
+        max_length=300,
+        description="Clear plain-English translation or equivalent meaning."
+    )
+    breakdown: Optional[str] = Field(
+        None,
+        max_length=400,
+        description="Concise word-by-word grammatical explanation tailored for an A1 German learner."
+    )
+    example_sentence: Optional[str] = Field(
+        None,
+        max_length=250,
+        description="Simple authentic German example sentence using the phrase."
+    )
+    example_translation: Optional[str] = Field(
+        None,
+        max_length=250,
+        description="English translation of the example sentence."
+    )
+    learner_note: Optional[str] = Field(
+        None,
+        max_length=250,
+        description="Helpful A1 learner usage note or tip."
+    )
+
+
 def clean_wiki_text(text: str) -> str:
     """Strip MediaWiki markup to extract plain, readable text."""
     if not text:
@@ -595,6 +625,80 @@ Provide a concise plain-English explanation or translation strictly grounded in 
         return None, "api_error"
 
 
+def generate_gemini_phrase_explanation(
+    phrase: str,
+    api_key: Optional[str] = None,
+    model_name: Optional[str] = None
+) -> Tuple[Optional[Dict[str, Any]], str]:
+    """
+    Generate an AI-assisted explanation for a multi-word German expression or phrase.
+    """
+    key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not key:
+        return None, "gemini_disabled"
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=key)
+        preferred_models = [
+            model_name or os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite"),
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash"
+        ]
+        candidate_models = list(dict.fromkeys(m for m in preferred_models if m))
+
+        prompt = f"""You are an expert German language tutor for an A1 learner.
+Explain the German phrase or expression: "{phrase}".
+Provide:
+1. Clear English translation / meaning.
+2. Word-by-word grammatical breakdown of each component word.
+3. A simple authentic German example sentence using this phrase, with English translation.
+4. An actionable A1 learner note (e.g. usage, register, or common pairings)."""
+
+        response = None
+        for m in candidate_models:
+            try:
+                response = client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=GeminiExpressionExplanationSchema,
+                        temperature=0.1
+                    )
+                )
+                if response and response.text:
+                    break
+            except Exception as ex:
+                err_str = str(ex).lower()
+                if "429" in err_str or "quota" in err_str:
+                    return None, "rate_limited"
+                if "401" in err_str or "403" in err_str:
+                    return None, "auth_error"
+                continue
+
+        if not response or not response.text:
+            return None, "model_unavailable"
+
+        parsed = json.loads(response.text)
+        validated = GeminiExpressionExplanationSchema.model_validate(parsed)
+        return {
+            "phrase": validated.phrase,
+            "english_meaning": validated.english_meaning[:300],
+            "breakdown": validated.breakdown[:400] if validated.breakdown else None,
+            "example_sentence": validated.example_sentence[:250] if validated.example_sentence else None,
+            "example_translation": validated.example_translation[:250] if validated.example_translation else None,
+            "learner_note": validated.learner_note[:250] if validated.learner_note else None
+        }, "success"
+
+    except Exception as ex:
+        logger.warning(f"Phrase explanation error: {ex}")
+        return None, "api_error"
+
+
 def check_word_online(
     word: str,
     api_key: Optional[str] = None,
@@ -603,7 +707,7 @@ def check_word_online(
     """
     Main entrypoint for Check Wiktionary Online.
     Handles caching, request deduplication, Wiktionary evidence fetching,
-    and optional Gemini explanation stage.
+    and optional Gemini explanation stage (including German expressions).
     """
     clean_w = word.strip()
     cache_key = clean_w.lower()
@@ -635,12 +739,14 @@ def check_word_online(
 
     # Initiator performs actual fetch
     try:
+        is_phrase = len(clean_w.split()) > 1
         wiktionary_res = check_wiktionary_evidence(clean_w)
         final_res: Dict[str, Any] = {
             "query": clean_w,
             "wiktionary": wiktionary_res,
             "ai_explanation": None,
-            "ai_status": "not_requested"
+            "ai_status": "not_requested",
+            "is_expression": is_phrase
         }
 
         # If Wiktionary returned evidence, run optional Gemini stage
@@ -653,13 +759,23 @@ def check_word_online(
             )
             final_res["ai_explanation"] = ai_data
             final_res["ai_status"] = ai_status
+        elif is_phrase:
+            # Multi-word German phrase or expression explanation
+            ai_data, ai_status = generate_gemini_phrase_explanation(
+                clean_w,
+                api_key=api_key,
+                model_name=model_name
+            )
+            final_res["ai_explanation"] = ai_data
+            final_res["ai_status"] = ai_status
+            final_res["is_expression"] = True
         elif wiktionary_res.get("status") == "non_german_page":
             final_res["ai_status"] = "non_german_page"
         else:
             final_res["ai_status"] = "no_evidence"
 
         # Cache successful responses
-        if wiktionary_res.get("status") in ("success", "non_german_page", "not_found"):
+        if wiktionary_res.get("status") in ("success", "non_german_page", "not_found") or is_phrase:
             with _cache_lock:
                 _cache[cache_key] = (time.time(), final_res)
 

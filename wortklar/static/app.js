@@ -454,15 +454,16 @@
     const hasForms = data.form_matches && data.form_matches.length > 0;
     const hasLookalikes = data.lookalikes && data.lookalikes.length > 0;
     const didYouMean = data.did_you_mean;
+    const phraseBreakdown = data.phrase_breakdown;
 
-    // Case 1: No match at all and no suggestion
-    if (!hasExact && !hasForms && !didYouMean) {
+    // Case 1: No match at all, no suggestion, and no phrase breakdown
+    if (!hasExact && !hasForms && !didYouMean && !phraseBreakdown) {
       showNoMatchState(query);
       return;
     }
 
     // Case 2: Did You Mean banner (when no exact entries exist, but a candidate exists)
-    if (!hasExact && didYouMean) {
+    if (!hasExact && didYouMean && !phraseBreakdown) {
       const dymBanner = el('div', 'assistance-banner');
       const dymTitle = el('div', 'assistance-title', 'Did you mean:');
       dymBanner.appendChild(dymTitle);
@@ -532,6 +533,105 @@
         renderEntryCard(entry);
       });
     }
+
+    // Case 6: Multi-word phrase or expression breakdown (e.g. "relativ klein", "ab und zu")
+    if (phraseBreakdown && phraseBreakdown.words && phraseBreakdown.words.length > 0) {
+      renderExpressionCard(phraseBreakdown, query);
+    }
+  }
+
+  /**
+   * Render multi-word German phrase / expression card with constituent words and AI explanation.
+   */
+  function renderExpressionCard(phraseData, query) {
+    const card = el('article', 'entry-card expression-card');
+
+    // Header
+    const header = el('div', 'entry-header');
+    const titleRow = el('div', 'entry-title-row');
+
+    const headwordH2 = el('h2', 'entry-headword', phraseData.phrase);
+    titleRow.appendChild(headwordH2);
+
+    const actionPill = el('div', 'entry-action-pill');
+    actionPill.appendChild(createAudioButton(phraseData.phrase));
+    actionPill.appendChild(createCopyButton(phraseData.phrase, 'phrase'));
+    titleRow.appendChild(actionPill);
+
+    const exprBadge = el('span', 'entry-pos-badge expression-badge', 'EXPRESSION / PHRASE');
+    titleRow.appendChild(exprBadge);
+
+    header.appendChild(titleRow);
+    card.appendChild(header);
+
+    // Constituent Words Breakdown Box
+    const wordsSection = el('div', 'phrase-words-section');
+    wordsSection.appendChild(el('h3', 'phrase-section-title', 'Constituent Words Breakdown:'));
+
+    const wordsGrid = el('div', 'phrase-words-grid');
+    phraseData.words.forEach(word => {
+      const item = el('div', 'phrase-word-item');
+
+      const wordHeader = el('div', 'phrase-word-header');
+      if (word.article && word.part_of_speech === 'noun') {
+        const artClean = word.article.toLowerCase().trim();
+        const artClass = artClean === 'der' ? 'art-der' : (artClean === 'die' ? 'art-die' : (artClean === 'das' ? 'art-das' : ''));
+        wordHeader.appendChild(el('span', `entry-article ${artClass}`, `${word.article} `));
+      }
+
+      const wordTitle = el('span', 'phrase-word-headword', word.headword);
+      wordHeader.appendChild(wordTitle);
+      wordHeader.appendChild(createAudioButton(word.headword));
+
+      if (word.part_of_speech) {
+        wordHeader.appendChild(el('span', `entry-pos-badge ${word.part_of_speech}`, word.part_of_speech));
+      }
+      item.appendChild(wordHeader);
+
+      // Meanings / senses preview
+      if (word.senses && word.senses.length > 0) {
+        const sensesUl = el('ul', 'phrase-word-senses');
+        word.senses.slice(0, 2).forEach(s => {
+          const gloss = s.gloss_en || s.gloss_de || 'Definition available';
+          sensesUl.appendChild(el('li', '', gloss));
+        });
+        item.appendChild(sensesUl);
+      }
+
+      // Link to look up single word
+      const linkRow = el('div', 'phrase-word-action');
+      const lookupSingle = el('span', 'assistance-target', `View dictionary entry for "${word.headword}" →`);
+      lookupSingle.addEventListener('click', () => {
+        searchInput.value = word.headword;
+        executeLookup(word.headword);
+      });
+      linkRow.appendChild(lookupSingle);
+      item.appendChild(linkRow);
+
+      wordsGrid.appendChild(item);
+    });
+    wordsSection.appendChild(wordsGrid);
+    card.appendChild(wordsSection);
+
+    // AI Expression Explanation Section
+    const aiSec = el('div', 'phrase-ai-section');
+    const explainBtn = el('button', 'btn-explain-phrase', `✨ Explain expression "${phraseData.phrase}" with AI`);
+    explainBtn.type = 'button';
+    const aiContainer = el('div', 'online-results-container');
+    aiContainer.style.marginTop = '12px';
+
+    explainBtn.addEventListener('click', () => {
+      triggerOnlineCheck(phraseData.phrase, explainBtn, aiContainer);
+    });
+
+    aiSec.appendChild(explainBtn);
+    aiSec.appendChild(aiContainer);
+    card.appendChild(aiSec);
+
+    dynamicContent.appendChild(card);
+
+    // Automatically trigger AI explanation for the expression
+    triggerOnlineCheck(phraseData.phrase, explainBtn, aiContainer);
   }
 
   /**
@@ -931,12 +1031,13 @@
   async function triggerOnlineCheck(word, button, container) {
     if (!word || !container) return;
 
+    const isPhrase = word.trim().indexOf(' ') !== -1;
     button.disabled = true;
     const originalText = button.textContent;
-    button.textContent = 'Checking Wiktionary...';
+    button.textContent = isPhrase ? 'Analyzing expression...' : 'Checking Wiktionary...';
 
     container.innerHTML = '';
-    const loadingDiv = el('div', 'online-loading', 'Connecting to Wiktionary MediaWiki API...');
+    const loadingDiv = el('div', 'online-loading', isPhrase ? 'Analyzing German expression with AI tutor...' : 'Connecting to Wiktionary MediaWiki API...');
     container.appendChild(loadingDiv);
 
     try {
@@ -982,9 +1083,91 @@
   }
 
   /**
+   * Render structured AI explanation card for multi-word German expressions.
+   */
+  function renderExpressionAiCard(data, container) {
+    const ai = data.ai_explanation;
+    const card = el('div', 'online-result-card expression-ai-card');
+
+    // Header
+    const cardHeader = el('div', 'online-card-header');
+    const badge = el('span', 'ai-badge', '✨ AI Expression Explanation');
+    cardHeader.appendChild(badge);
+
+    const titleRow = el('div', 'entry-title-row');
+    titleRow.appendChild(el('h3', 'online-headword', ai.phrase || data.query));
+    titleRow.appendChild(createAudioButton(ai.phrase || data.query));
+    titleRow.appendChild(createCopyButton(ai.phrase || data.query, 'phrase'));
+    cardHeader.appendChild(titleRow);
+    card.appendChild(cardHeader);
+
+    // English Meaning Box
+    if (ai.english_meaning) {
+      const meaningBox = el('div', 'ai-meaning-highlight');
+      meaningBox.appendChild(el('span', 'ai-meaning-label', 'Meaning in English'));
+      meaningBox.appendChild(el('strong', 'ai-meaning-text', ai.english_meaning));
+      card.appendChild(meaningBox);
+    }
+
+    // Breakdown
+    if (ai.breakdown) {
+      const breakdownBox = el('div', 'ai-breakdown-box');
+      breakdownBox.appendChild(el('h4', 'ai-subheading', 'Word-by-word Breakdown:'));
+      breakdownBox.appendChild(el('p', 'ai-breakdown-text', ai.breakdown));
+      card.appendChild(breakdownBox);
+    }
+
+    // Example Sentence
+    if (ai.example_sentence) {
+      const exBox = el('div', 'examples-section');
+      exBox.appendChild(el('h4', 'examples-title', 'Authentic Example:'));
+
+      const exItem = el('div', 'example-item');
+      const deRow = el('div', 'example-de-row');
+      deRow.appendChild(el('span', 'example-de', ai.example_sentence));
+      deRow.appendChild(createAudioButton(ai.example_sentence));
+      exItem.appendChild(deRow);
+
+      if (ai.example_translation) {
+        exItem.appendChild(el('div', 'example-en', ai.example_translation));
+      }
+      exBox.appendChild(exItem);
+      card.appendChild(exBox);
+    }
+
+    // Learner Note
+    if (ai.learner_note) {
+      const noteBox = el('div', 'ai-note-callout');
+      noteBox.innerHTML = `💡 <strong>A1 Learner Note:</strong> ${escapeHtml(ai.learner_note)}`;
+      card.appendChild(noteBox);
+    }
+
+    // Disclaimer footer
+    const footer = el('div', 'entry-footer');
+    footer.appendChild(el('span', 'ai-disclaimer', 'AI-assisted explanation generated with Google Gemini · Grounded for German learners'));
+    card.appendChild(footer);
+
+    container.appendChild(card);
+  }
+
+  /**
    * Render separate "Online dictionary result" card with source and optional AI explanation.
    */
   function renderOnlineResults(data, container) {
+    // If it's an expression with AI explanation
+    if (data.is_expression && data.ai_explanation) {
+      renderExpressionAiCard(data, container);
+      return;
+    }
+
+    if (data.is_expression && data.ai_status === 'gemini_disabled') {
+      const card = el('div', 'state-card warning');
+      card.appendChild(el('h3', '', 'AI Expression Explanation Not Configured'));
+      card.appendChild(el('p', '', 'Add GEMINI_API_KEY to your environment to enable AI explanation for phrases and expressions. The constituent words are broken down above.'));
+      container.appendChild(card);
+      return;
+    }
+
     const w = data.wiktionary || {};
     const status = w.status;
 

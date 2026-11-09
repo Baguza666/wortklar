@@ -215,17 +215,31 @@ def lookup_word(conn: sqlite3.Connection, raw_query: str) -> Dict[str, Any]:
 
     q_lower = q.lower()
 
-    # Step 1: Find direct entry matches (headword == q or headword.lower == q_lower)
-    cur = conn.execute("""
+    # Step 1: Find direct entry matches using indexed headword candidates (eliminates full 1M scan)
+    candidates_case = list(dict.fromkeys([q, q.capitalize(), q.lower(), q.upper()]))
+    placeholders = ",".join("?" for _ in candidates_case)
+    cur = conn.execute(f"""
         SELECT e.id, e.headword, e.part_of_speech, e.gender, e.article, e.source_edition,
                e.source_url, e.raw_tags, e.grammar_data, e.etymology_number
         FROM entries e
-        WHERE e.headword = ? OR LOWER(e.headword) = ?
+        WHERE e.headword IN ({placeholders})
         ORDER BY
-            CASE WHEN e.headword = ? THEN 1 ELSE 2 END,
+            CASE WHEN e.headword = ? THEN 1 WHEN LOWER(e.headword) = ? THEN 2 ELSE 3 END,
             e.id ASC
-    """, (q, q_lower, q))
+    """, candidates_case + [q, q_lower])
     entry_rows = cur.fetchall()
+
+    # Fallback to search_index if no direct candidate match
+    if not entry_rows:
+        cur_idx = conn.execute("""
+            SELECT e.id, e.headword, e.part_of_speech, e.gender, e.article, e.source_edition,
+                   e.source_url, e.raw_tags, e.grammar_data, e.etymology_number
+            FROM search_index s
+            JOIN entries e ON e.id = s.entry_id
+            WHERE s.lower_term = ? AND s.is_lemma = 1
+            LIMIT 5
+        """, (q_lower,))
+        entry_rows = cur_idx.fetchall()
 
     exact_entries = []
     seen_entry_ids = set()
@@ -343,12 +357,56 @@ def lookup_word(conn: sqlite3.Connection, raw_query: str) -> Dict[str, Any]:
             if not did_you_mean and not exact_entries:
                 did_you_mean = lookalike_item
 
+    # Step 4: Multi-word phrase / expression breakdown (e.g. "relativ klein", "ab und zu")
+    phrase_breakdown = None
+    tokens = [t.strip() for t in q.split() if t.strip()]
+    if len(tokens) > 1 and not exact_entries:
+        breakdown_words = []
+        for token in tokens:
+            t_lower = token.lower()
+            t_candidates = list(dict.fromkeys([token, token.capitalize(), token.lower()]))
+            t_placeholders = ",".join("?" for _ in t_candidates)
+            cur_tok = conn.execute(f"""
+                SELECT e.id, e.headword, e.part_of_speech, e.gender, e.article, e.source_edition,
+                       e.source_url, e.raw_tags, e.grammar_data, e.etymology_number
+                FROM entries e
+                WHERE e.headword IN ({t_placeholders})
+                ORDER BY
+                    CASE WHEN e.headword = ? THEN 1 WHEN e.headword = ? THEN 2 ELSE 3 END,
+                    e.id ASC
+                LIMIT 1
+            """, t_candidates + [token, token.capitalize()])
+            row_tok = cur_tok.fetchone()
+            if row_tok:
+                breakdown_words.append(_load_full_entry(conn, row_tok))
+            else:
+                # Fallback to search_index
+                cur_s = conn.execute("""
+                    SELECT e.id, e.headword, e.part_of_speech, e.gender, e.article, e.source_edition,
+                           e.source_url, e.raw_tags, e.grammar_data, e.etymology_number
+                    FROM search_index s
+                    JOIN entries e ON e.id = s.entry_id
+                    WHERE s.lower_term = ?
+                    ORDER BY s.is_lemma DESC
+                    LIMIT 1
+                """, (t_lower,))
+                row_s = cur_s.fetchone()
+                if row_s:
+                    breakdown_words.append(_load_full_entry(conn, row_s))
+
+        if breakdown_words:
+            phrase_breakdown = {
+                "phrase": q,
+                "words": breakdown_words
+            }
+
     return {
         "query": q,
         "exact_entries": exact_entries,
         "form_matches": form_matches,
         "lookalikes": lookalikes[:6],
-        "did_you_mean": did_you_mean
+        "did_you_mean": did_you_mean,
+        "phrase_breakdown": phrase_breakdown
     }
 
 
